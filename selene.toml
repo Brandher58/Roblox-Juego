@@ -1,0 +1,8 @@
+std = "roblox"
+
+# src/tests corre con Lune, no dentro de Roblox: sus require son rutas relativas y
+# selene las interpretaría como ids de asset inválidos.
+exclude = ["src/tests/*.luau"]
+
+[lints]
+mixed_table = "allow"

@@ -6,6 +6,29 @@
     "ReplicatedStorage": {
       "Shared": {
         "$path": "src/shared"
+      },
+
+      "Remotes": {
+        "$className": "Folder",
+
+        "MatchStateChanged": {
+          "$className": "RemoteEvent"
+        },
+        "RunSnapshot": {
+          "$className": "RemoteEvent"
+        },
+        "UpgradeChosen": {
+          "$className": "RemoteEvent"
+        },
+        "ClientReady": {
+          "$className": "RemoteEvent"
+        },
+        "RequestUpgrade": {
+          "$className": "RemoteEvent"
+        },
+        "CombatEffect": {
+          "$className": "UnreliableRemoteEvent"
+        }
       }
     },
 
@@ -24,19 +47,18 @@
     },
 
     "Workspace": {
-      "$properties": {
-        "FilteringEnabled": true
-      },
       "Baseplate": {
         "$className": "Part",
         "$properties": {
           "Anchored": true,
+          "BottomSurface": "Smooth",
           "Color": [
-            0.38823,
-            0.37254,
-            0.38823
+            0.2902,
+            0.3098,
+            0.3608
           ],
           "Locked": true,
+          "Material": "Slate",
           "Position": [
             0,
             -5,
@@ -46,7 +68,8 @@
             256,
             10,
             256
-          ]
+          ],
+          "TopSurface": "Smooth"
         }
       },
       "SpawnLocation": {
@@ -77,20 +100,29 @@
     "Lighting": {
       "$properties": {
         "Ambient": [
-          0,
-          0,
-          0
+          0.30588,
+          0.31373,
+          0.37647
         ],
-        "Brightness": 2,
+        "Brightness": 2.2,
+        "ClockTime": 14,
+        "EnvironmentDiffuseScale": 0.5,
+        "EnvironmentSpecularScale": 0.4,
+        "FogColor": [
+          0.15686,
+          0.16863,
+          0.22745
+        ],
+        "FogEnd": 320,
+        "FogStart": 140,
         "GlobalShadows": true,
         "Outlines": false,
+        "ShadowSoftness": 0.3,
         "Technology": "Voxel"
       }
     },
     "SoundService": {
-      "$properties": {
-        "RespectFilteringEnabled": true
-      }
+      "$className": "SoundService"
     }
   }
 }
