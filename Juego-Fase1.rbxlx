@@ -1,0 +1,5699 @@
+<roblox version="4">
+  <Item class="Lighting" referent="0">
+    <Properties>
+      <string name="Name">Lighting</string>
+      <Color3 name="Ambient">
+        <R>0.30588</R>
+        <G>0.31373</G>
+        <B>0.37647</B>
+      </Color3>
+      <float name="Brightness">2.2</float>
+      <float name="ClockTime">14</float>
+      <float name="EnvironmentDiffuseScale">0.5</float>
+      <float name="EnvironmentSpecularScale">0.4</float>
+      <Color3 name="FogColor">
+        <R>0.15686</R>
+        <G>0.16863</G>
+        <B>0.22745</B>
+      </Color3>
+      <float name="FogEnd">320</float>
+      <float name="FogStart">140</float>
+      <bool name="GlobalShadows">true</bool>
+      <bool name="Outlines">false</bool>
+      <float name="ShadowSoftness">0.3</float>
+      <token name="Technology">1</token>
+    </Properties>
+  </Item>
+  <Item class="ReplicatedStorage" referent="1">
+    <Properties>
+      <string name="Name">ReplicatedStorage</string>
+    </Properties>
+    <Item class="Folder" referent="2">
+      <Properties>
+        <string name="Name">Remotes</string>
+      </Properties>
+      <Item class="RemoteEvent" referent="3">
+        <Properties>
+          <string name="Name">ClientReady</string>
+        </Properties>
+      </Item>
+      <Item class="UnreliableRemoteEvent" referent="4">
+        <Properties>
+          <string name="Name">CombatEffect</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="5">
+        <Properties>
+          <string name="Name">MatchStateChanged</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="6">
+        <Properties>
+          <string name="Name">RequestUpgrade</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="7">
+        <Properties>
+          <string name="Name">RunSnapshot</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="8">
+        <Properties>
+          <string name="Name">UpgradeChosen</string>
+        </Properties>
+      </Item>
+    </Item>
+    <Item class="Folder" referent="9">
+      <Properties>
+        <string name="Name">Shared</string>
+      </Properties>
+      <Item class="ModuleScript" referent="10">
+        <Properties>
+          <string name="Name">Config</string>
+          <string name="Source"><![CDATA[--!strict
+-- Un único lugar para números de balance. Ningún sistema debe inventar su propia
+-- constante de dificultad, cooldown o tamaño: se leen de aquí.
+local Config = {}
+
+local function deepFreeze<T>(value: T): T
+	if type(value) ~= "table" then
+		return value
+	end
+	for _, child in value :: any do
+		deepFreeze(child)
+	end
+	return table.freeze(value)
+end
+
+--Geometría de la arena del vertical slice.
+Config.Arena = {
+	HalfExtent = 110,
+	FloorY = 0.5,
+	SpawnRadiusMin = 34,
+	SpawnRadiusMax = 52,
+}
+
+--Estadísticas base de cualquier jugador al empezar una partida. Damage y
+--AttackSpeed valen 1 a propósito: son multiplicadores globales que escalan cada arma.
+Config.PlayerBaseStats = {
+	MaxHealth = 100,
+	Armor = 0,
+	MoveSpeed = 16,
+	Damage = 1,
+	AttackSpeed = 1,
+	CriticalChance = 0.05,
+	CriticalDamage = 1.5,
+	Range = 1,
+	ProjectileSpeed = 1,
+	ProjectileCount = 0,
+	PickupRadius = 9,
+	XPModifier = 1,
+	Luck = 1,
+}
+
+--Ritmo de la partida y pausas automáticas.
+Config.Run = {
+	LevelUpTimeout = 15,
+	DefeatDuration = 6,
+	EnemySpawnGrace = 1,
+	-- Objetivo de la Fase 1: sobrevivir este tiempo da la victoria. En la Fase 2 este
+	-- mismo reloj pasa a ser el disparador del jefe, así que el final de partida ya
+	-- está probado antes de que exista el jefe.
+	TargetDuration = 360,
+}
+
+--Gotas de experiencia en el suelo. El tope no es un recorte de experiencia: cuando
+--se supera, la gota nueva se funde con la más cercana, así que la recompensa se
+--mantiene entera y además se ve más grande.
+Config.Pickups = {
+	MaxActive = 220,
+	MergeRadius = 14,
+}
+
+--Progresión vertical del spawner. La dificultad es una función del tiempo jugado.
+Config.Spawn = {
+	BaseInterval = 1.5,
+	IntervalDecayPerMinute = 0.45,
+	MinInterval = 0.35,
+	BaseBatch = 1,
+	BatchPerMinute = 0.6,
+	BaseMaxAlive = 24,
+	MaxAlivePerMinute = 8,
+}
+
+--Escalado por minuto de los enemigos.
+Config.Scaling = {
+	HealthPerMinute = 0.55,
+	SpeedPerMinute = 0.035,
+	MaxSpeedMultiplier = 1.45,
+}
+
+--Proyectiles del vertical slice.
+Config.Projectile = {
+	Radius = 0.6,
+	SpeedFloor = 25,
+	MaxLifetime = 2.5,
+	-- Gravedad de los proyectiles que describen un arco (bombas). Los proyectiles
+	-- rectos la tienen a cero y no cambian de dirección.
+	Gravity = 46,
+	-- Un proyectil explosivo es más grande para que se vea venir.
+	BombRadius = 1.1,
+}
+
+--Cuchillas orbitando al jugador. Son piezas persistentes, no disparos: giran y
+--muelen por contacto con su propio ritmo, independiente del ataque por cadencia.
+Config.Orbit = {
+	MaxBlades = 12,
+	BladeSize = Vector3.new(0.5, 0.5, 2),
+	BladeColor = Color3.fromRGB(178, 216, 255),
+	-- Radio de contacto de cada cuchilla al buscar enemigos en la rejilla.
+	ContactRadius = 1.4,
+	-- Segundos que un enemigo queda protegido tras recibir un corte. Sin esto una
+	-- cuchilla dañaría cada frame.
+	HitCooldownFloor = 0.2,
+}
+
+--Cámara top-down isométrica ligera.
+Config.Camera = {
+	Offset = Vector3.new(0, 34, 20),
+	FieldOfView = 62,
+	Smoothing = 9,
+}
+
+--Presentación por enemigo (fuera de EnemyDefinition para que las definiciones
+--no dependan de la API de Roblox y sigan siendo testeables headless).
+Config.EnemyVisuals = {
+	basic = {
+		Color = Color3.fromRGB(214, 79, 79),
+		OffsetY = 1.6,
+		-- Asset de Creator Store que sustituye a la esfera roja por el modelo del NPC.
+		-- El id 4446576906 devuelve permiso denegado en runtime; de momento se
+		-- devuelve a la esfera. Descomentar cuando se suba el modelo a tu cuenta.
+		-- AssetId = 4446576906,
+	},
+}
+
+Config.UI = {
+	Accent = Color3.fromRGB(255, 214, 92),
+	CardWidth = 250,
+	CardHeight = 320,
+	CardGap = 18,
+}
+
+deepFreeze(Config)
+return Config
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="Folder" referent="11">
+        <Properties>
+          <string name="Name">Definitions</string>
+        </Properties>
+        <Item class="Folder" referent="12">
+          <Properties>
+            <string name="Name">Enemies</string>
+          </Properties>
+          <Item class="ModuleScript" referent="13">
+            <Properties>
+              <string name="Name">Basic</string>
+              <string name="Source"><![CDATA[--!strict
+
+local definition = {
+	Id = "basic",
+	Name = "Crawler",
+	Health = 34,
+	Speed = 10.5,
+	Damage = 6,
+	AttackInterval = 1,
+	AttackRange = 3.4,
+	XPReward = 4,
+	Size = 2.6,
+	AttackType = "Contact",
+	Tags = { "melee" },
+}
+
+return definition
+]]></string>
+            </Properties>
+          </Item>
+        </Item>
+        <Item class="Folder" referent="14">
+          <Properties>
+            <string name="Name">Upgrades</string>
+          </Properties>
+          <Item class="ModuleScript" referent="15">
+            <Properties>
+              <string name="Name">BombDamage</string>
+              <string name="Source"><![CDATA[--!strict
+
+local definition = {
+	Id = "bomb_damage",
+	Kind = "WeaponUpgrade",
+	Rarity = "Uncommon",
+	Name = "Carga Extra",
+	Description = "Cada nivel añade daño plano y ensancha la explosión.",
+	Icon = "💣",
+	MaxLevel = 5,
+	Weight = 90,
+	TargetId = "bomb",
+	Modifiers = {
+		{ stat = "Damage", kind = "Add", value = 6, source = "bomb_damage" },
+		{ stat = "BlastRadius", kind = "Add", value = 1.5, source = "bomb_damage" },
+	},
+}
+
+return definition
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="16">
+            <Properties>
+              <string name="Name">BombUnlock</string>
+              <string name="Source"><![CDATA[--!strict
+
+local definition = {
+	Id = "bomb_unlock",
+	Kind = "NewWeapon",
+	Rarity = "Epic",
+	Name = "Meteorito",
+	Description = "Nueva arma: bombas que caen y estallan en área.",
+	Icon = "☄️",
+	MaxLevel = 1,
+	Weight = 30,
+	TargetId = "bomb",
+	Modifiers = {},
+	Requires = function(run)
+		return (run.weaponLevels.bomb or 0) < 1
+	end,
+}
+
+return definition
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="17">
+            <Properties>
+              <string name="Name">ChainDamage</string>
+              <string name="Source"><![CDATA[--!strict
+
+local definition = {
+	Id = "chain_damage",
+	Kind = "WeaponUpgrade",
+	Rarity = "Common",
+	Name = "Conductores",
+	Description = "Cada nivel añade daño plano y un salto más de cadena.",
+	Icon = "⚡",
+	MaxLevel = 5,
+	Weight = 90,
+	TargetId = "chain",
+	Modifiers = {
+		{ stat = "Damage", kind = "Add", value = 3, source = "chain_damage" },
+		{ stat = "ChainCount", kind = "Add", value = 0.5, source = "chain_damage" },
+	},
+}
+
+return definition
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="18">
+            <Properties>
+              <string name="Name">ChainUnlock</string>
+              <string name="Source"><![CDATA[--!strict
+
+local definition = {
+	Id = "chain_unlock",
+	Kind = "NewWeapon",
+	Rarity = "Rare",
+	Name = "Relámpago",
+	Description = "Nueva arma: el relámpago salta entre enemigos.",
+	Icon = "⚡",
+	MaxLevel = 1,
+	Weight = 40,
+	TargetId = "chain",
+	Modifiers = {},
+	-- Solo aparece si el jugador todavia no la tiene: evita ofrecer un duplicado.
+	Requires = function(run)
+		return (run.weaponLevels.chain or 0) < 1
+	end,
+}
+
+return definition
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="19">
+            <Properties>
+              <string name="Name">GunAttackSpeed</string>
+              <string name="Source"><![CDATA[--!strict
+
+local definition = {
+	Id = "gun_haste",
+	Kind = "WeaponUpgrade",
+	Rarity = "Common",
+	Name = "Rapid Cycling",
+	Description = "Disparas un 12% más rápido con este arma.",
+	Icon = "⚡",
+	MaxLevel = 5,
+	Weight = 90,
+	TargetId = "gun",
+	Modifiers = {
+		{ stat = "AttackSpeed", kind = "Multiply", value = 1.12, source = "gun_haste" },
+	},
+}
+
+return definition
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="20">
+            <Properties>
+              <string name="Name">GunDamage</string>
+              <string name="Source"><![CDATA[--!strict
+
+local definition = {
+	Id = "gun_damage",
+	Kind = "WeaponUpgrade",
+	Rarity = "Common",
+	Name = "Overcharged Coils",
+	Description = "Cada nivel añade daño plano al arma.",
+	Icon = "💥",
+	MaxLevel = 5,
+	Weight = 100,
+	TargetId = "gun",
+	Modifiers = {
+		{ stat = "Damage", kind = "Add", value = 3, source = "gun_damage" },
+	},
+}
+
+return definition
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="21">
+            <Properties>
+              <string name="Name">NovaDamage</string>
+              <string name="Source"><![CDATA[--!strict
+
+local definition = {
+	Id = "nova_damage",
+	Kind = "WeaponUpgrade",
+	Rarity = "Common",
+	Name = "Resonancia",
+	Description = "Cada nivel añade daño plano y ensancha el pulso.",
+	Icon = "🌊",
+	MaxLevel = 5,
+	Weight = 90,
+	TargetId = "nova",
+	Modifiers = {
+		{ stat = "Damage", kind = "Add", value = 3, source = "nova_damage" },
+		{ stat = "Radius", kind = "Add", value = 1.2, source = "nova_damage" },
+		{ stat = "Range", kind = "Add", value = 1.2, source = "nova_damage" },
+	},
+}
+
+return definition
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="22">
+            <Properties>
+              <string name="Name">NovaUnlock</string>
+              <string name="Source"><![CDATA[--!strict
+
+local definition = {
+	Id = "nova_unlock",
+	Kind = "NewWeapon",
+	Rarity = "Rare",
+	Name = "Pulso Nova",
+	Description = "Nueva arma: una onda de daño a tu alrededor.",
+	Icon = "🌊",
+	MaxLevel = 1,
+	Weight = 40,
+	TargetId = "nova",
+	Modifiers = {},
+	Requires = function(run)
+		return (run.weaponLevels.nova or 0) < 1
+	end,
+}
+
+return definition
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="23">
+            <Properties>
+              <string name="Name">OrbitDamage</string>
+              <string name="Source"><![CDATA[--!strict
+
+local definition = {
+	Id = "orbit_damage",
+	Kind = "WeaponUpgrade",
+	Rarity = "Common",
+	Name = "Filo Afilado",
+	Description = "Cada nivel añade daño plano y una cuchilla más.",
+	Icon = "🗡",
+	MaxLevel = 5,
+	Weight = 90,
+	TargetId = "orbit",
+	Modifiers = {
+		{ stat = "Damage", kind = "Add", value = 2.5, source = "orbit_damage" },
+		{ stat = "BladeCount", kind = "Add", value = 0.5, source = "orbit_damage" },
+	},
+}
+
+return definition
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="24">
+            <Properties>
+              <string name="Name">OrbitUnlock</string>
+              <string name="Source"><![CDATA[--!strict
+
+local definition = {
+	Id = "orbit_unlock",
+	Kind = "NewWeapon",
+	Rarity = "Rare",
+	Name = "Cuchillas",
+	Description = "Nueva arma: cuchillas orbitando que cortan por contacto.",
+	Icon = "🗡",
+	MaxLevel = 1,
+	Weight = 40,
+	TargetId = "orbit",
+	Modifiers = {},
+	Requires = function(run)
+		return (run.weaponLevels.orbit or 0) < 1
+	end,
+}
+
+return definition
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="25">
+            <Properties>
+              <string name="Name">ShotgunDamage</string>
+              <string name="Source"><![CDATA[--!strict
+
+local definition = {
+	Id = "shotgun_damage",
+	Kind = "WeaponUpgrade",
+	Rarity = "Uncommon",
+	Name = "Breach Rounds",
+	Description = "+1.5 de daño por perdigón y un perdigón extra.",
+	Icon = "🎯",
+	MaxLevel = 5,
+	Weight = 80,
+	TargetId = "shotgun",
+	Modifiers = {
+		{ stat = "Damage", kind = "Add", value = 1.5, source = "shotgun_damage" },
+		{ stat = "Pellets", kind = "Add", value = 1, source = "shotgun_damage" },
+	},
+}
+
+return definition
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="26">
+            <Properties>
+              <string name="Name">ShotgunUnlock</string>
+              <string name="Source"><![CDATA[--!strict
+
+local definition = {
+	Id = "shotgun_unlock",
+	Kind = "NewWeapon",
+	Rarity = "Rare",
+	Name = "Breacher",
+	Description = "Nueva arma: ráfaga de perdigones en cono.",
+	Icon = "💥",
+	MaxLevel = 1,
+	Weight = 45,
+	TargetId = "shotgun",
+	Modifiers = {},
+	-- Solo aparece si el jugador todavía no la tiene: evita ofrecer un duplicado.
+	Requires = function(run)
+		return (run.weaponLevels.shotgun or 0) < 1
+	end,
+}
+
+return definition
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="27">
+            <Properties>
+              <string name="Name">Vitality</string>
+              <string name="Source"><![CDATA[--!strict
+
+local definition = {
+	Id = "vitality",
+	Kind = "Stat",
+	Rarity = "Common",
+	Name = "Field Plating",
+	Description = "+25 de salud máxima.",
+	Icon = "❤️",
+	MaxLevel = 5,
+	Weight = 85,
+	Modifiers = {
+		{ stat = "MaxHealth", kind = "Add", value = 25, source = "vitality" },
+	},
+}
+
+return definition
+]]></string>
+            </Properties>
+          </Item>
+        </Item>
+        <Item class="Folder" referent="28">
+          <Properties>
+            <string name="Name">Weapons</string>
+          </Properties>
+          <Item class="ModuleScript" referent="29">
+            <Properties>
+              <string name="Name">Bomb</string>
+              <string name="Source"><![CDATA[--!strict
+
+local blastGrowth = {
+	{ stat = "Damage", kind = "Add", value = 5, source = "bomb_scaling" },
+	{ stat = "BlastRadius", kind = "Add", value = 1.5, source = "bomb_scaling" },
+}
+
+local levels = {
+	[2] = blastGrowth,
+	[3] = {
+		{ stat = "Damage", kind = "Add", value = 5, source = "bomb_scaling" },
+		{ stat = "ProjectileCount", kind = "Add", value = 1, source = "bomb_scaling" },
+	},
+	[4] = blastGrowth,
+	[5] = {
+		{ stat = "Damage", kind = "Add", value = 5, source = "bomb_scaling" },
+		{ stat = "BlastRadius", kind = "Add", value = 1.5, source = "bomb_scaling" },
+		{ stat = "AttackSpeed", kind = "Multiply", value = 1.15, source = "bomb_scaling" },
+	},
+	[6] = blastGrowth,
+	[7] = {
+		{ stat = "Damage", kind = "Multiply", value = 1.2, source = "bomb_scaling" },
+		{ stat = "BlastRadius", kind = "Add", value = 2, source = "bomb_scaling" },
+	},
+	[8] = blastGrowth,
+}
+
+local definition = {
+	Id = "bomb",
+	Name = "Meteorito",
+	Description = "Lanza una bomba en parábola que estalla al tocar el suelo o al impacto.",
+	Icon = "☄️",
+	MaxLevel = 8,
+	Behavior = "Bomb",
+	BaseStats = {
+		Damage = 15,
+		AttackSpeed = 0.8,
+		Range = 34,
+		BlastRadius = 10,
+		-- Elevación de la dirección de tiro: define hasta dónde sube antes de caer.
+		Arc = 0.45,
+		ProjectileSpeed = 44,
+		ProjectileCount = 1,
+	},
+	Scaling = levels,
+	Tags = { "area", "lobbed", "ranged" },
+}
+
+return definition
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="30">
+            <Properties>
+              <string name="Name">Chain</string>
+              <string name="Source"><![CDATA[--!strict
+
+local damageGrowth = {
+	{ stat = "Damage", kind = "Add", value = 2.5, source = "chain_scaling" },
+}
+
+local levels = {
+	[2] = damageGrowth,
+	[3] = {
+		{ stat = "Damage", kind = "Add", value = 2.5, source = "chain_scaling" },
+		{ stat = "ChainCount", kind = "Add", value = 1, source = "chain_scaling" },
+	},
+	[4] = damageGrowth,
+	[5] = {
+		{ stat = "Damage", kind = "Add", value = 2.5, source = "chain_scaling" },
+		{ stat = "ChainRange", kind = "Add", value = 3, source = "chain_scaling" },
+	},
+	[6] = damageGrowth,
+	[7] = {
+		{ stat = "Damage", kind = "Multiply", value = 1.2, source = "chain_scaling" },
+		{ stat = "ChainCount", kind = "Add", value = 1, source = "chain_scaling" },
+	},
+	[8] = damageGrowth,
+}
+
+local definition = {
+	Id = "chain",
+	Name = "Relámpago",
+	Description = "Golpea al enemigo más cercano y salta a los que estén alrededor.",
+	Icon = "⚡",
+	MaxLevel = 8,
+	Behavior = "Chain",
+	BaseStats = {
+		Damage = 7,
+		AttackSpeed = 1.3,
+		Range = 40,
+		ChainCount = 3,
+		ChainRange = 20,
+		ChainFalloff = 0.85,
+		ProjectileSpeed = 1,
+		ProjectileCount = 0,
+	},
+	Scaling = levels,
+	Tags = { "chain", "area", "ranged" },
+}
+
+return definition
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="31">
+            <Properties>
+              <string name="Name">Gun</string>
+              <string name="Source"><![CDATA[--!strict
+
+local damageGrowth = {
+	{ stat = "Damage", kind = "Add", value = 3, source = "gun_scaling" },
+}
+
+local levels = {
+	[2] = damageGrowth,
+	[3] = damageGrowth,
+	[4] = {
+		{ stat = "Damage", kind = "Add", value = 3, source = "gun_scaling" },
+		{ stat = "ProjectileCount", kind = "Add", value = 1, source = "gun_scaling" },
+	},
+	[5] = damageGrowth,
+	[6] = {
+		{ stat = "Damage", kind = "Add", value = 3, source = "gun_scaling" },
+		{ stat = "AttackSpeed", kind = "Multiply", value = 1.12, source = "gun_scaling" },
+	},
+	[7] = damageGrowth,
+	[8] = {
+		{ stat = "Damage", kind = "Multiply", value = 1.25, source = "gun_scaling" },
+		{ stat = "AttackSpeed", kind = "Multiply", value = 1.1, source = "gun_scaling" },
+	},
+}
+
+local definition = {
+	Id = "gun",
+	Name = "Pulse Gun",
+	Description = "Dispara automáticamente al enemigo válido más cercano.",
+	Icon = "🔫",
+	MaxLevel = 8,
+	Behavior = "Projectile",
+	BaseStats = {
+		Damage = 11,
+		AttackSpeed = 1.7,
+		Range = 55,
+		ProjectileSpeed = 95,
+		ProjectileCount = 1,
+		Pellets = 1,
+		Spread = 0,
+	},
+	Scaling = levels,
+	Tags = { "projectile", "starting" },
+}
+
+return definition
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="32">
+            <Properties>
+              <string name="Name">Nova</string>
+              <string name="Source"><![CDATA[--!strict
+
+-- Range (cuándo se activa el pulso) y Radius (a quién golpea) se suben siempre juntos
+-- en la misma clave: si se separaran, el arma empezaría a pulsar en el vacío.
+local areaGrowth = {
+	{ stat = "Radius", kind = "Add", value = 1.5, source = "nova_scaling" },
+	{ stat = "Range", kind = "Add", value = 1.5, source = "nova_scaling" },
+}
+
+local damageGrowth = {
+	{ stat = "Damage", kind = "Add", value = 2, source = "nova_scaling" },
+}
+
+local levels = {
+	[2] = damageGrowth,
+	[3] = areaGrowth,
+	[4] = {
+		{ stat = "Damage", kind = "Add", value = 2, source = "nova_scaling" },
+		{ stat = "Radius", kind = "Add", value = 1.5, source = "nova_scaling" },
+		{ stat = "Range", kind = "Add", value = 1.5, source = "nova_scaling" },
+	},
+	[5] = damageGrowth,
+	[6] = {
+		{ stat = "Damage", kind = "Add", value = 2, source = "nova_scaling" },
+		{ stat = "AttackSpeed", kind = "Multiply", value = 1.12, source = "nova_scaling" },
+	},
+	[7] = areaGrowth,
+	[8] = {
+		{ stat = "Damage", kind = "Multiply", value = 1.25, source = "nova_scaling" },
+		{ stat = "Radius", kind = "Add", value = 2, source = "nova_scaling" },
+		{ stat = "Range", kind = "Add", value = 2, source = "nova_scaling" },
+	},
+}
+
+local definition = {
+	Id = "nova",
+	Name = "Pulso Nova",
+	Description = "Estalla a tu alrededor y daña a todo lo que tengas encima.",
+	Icon = "🌊",
+	MaxLevel = 8,
+	Behavior = "Nova",
+	BaseStats = {
+		Damage = 8,
+		AttackSpeed = 1.15,
+		Range = 9,
+		Radius = 9,
+		ProjectileSpeed = 1,
+		ProjectileCount = 0,
+	},
+	Scaling = levels,
+	Tags = { "area", "self", "no_target" },
+}
+
+return definition
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="33">
+            <Properties>
+              <string name="Name">Orbit</string>
+              <string name="Source"><![CDATA[--!strict
+
+-- El único arma que no dispara por cadencia: son piezas persistentes que giran y
+-- muelen por contacto. Por eso no necesita un enemigo al que apuntar, y por eso
+-- AttackSpeed es la frecuencia con la que se refrescan sus parámetros, no un
+-- intervalo de daño (ese ritmo lo lleva HitCooldown, por enemigo).
+local bladeGrowth = {
+	{ stat = "Damage", kind = "Add", value = 2, source = "orbit_scaling" },
+}
+
+local levels = {
+	[2] = bladeGrowth,
+	[3] = {
+		{ stat = "Damage", kind = "Add", value = 2, source = "orbit_scaling" },
+		{ stat = "BladeCount", kind = "Add", value = 1, source = "orbit_scaling" },
+	},
+	[4] = bladeGrowth,
+	[5] = {
+		{ stat = "Damage", kind = "Add", value = 2, source = "orbit_scaling" },
+		{ stat = "BladeCount", kind = "Add", value = 1, source = "orbit_scaling" },
+		{ stat = "OrbitSpeed", kind = "Multiply", value = 1.15, source = "orbit_scaling" },
+	},
+	[6] = bladeGrowth,
+	[7] = {
+		{ stat = "Damage", kind = "Multiply", value = 1.2, source = "orbit_scaling" },
+		{ stat = "HitCooldown", kind = "Multiply", value = 0.85, source = "orbit_scaling" },
+	},
+	[8] = bladeGrowth,
+}
+
+local definition = {
+	Id = "orbit",
+	Name = "Cuchillas",
+	Description = "Cuchillas orbitando: cortan por contacto una y otra vez.",
+	Icon = "🗡",
+	MaxLevel = 8,
+	Behavior = "Orbit",
+	BaseStats = {
+		Damage = 6,
+		AttackSpeed = 2,
+		BladeCount = 2,
+		OrbitRadius = 6.5,
+		OrbitSpeed = 2.6,
+		HitCooldown = 0.45,
+	},
+	RequiresTarget = false,
+	Scaling = levels,
+	Tags = { "orbit", "contact", "no_target" },
+}
+
+return definition
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="34">
+            <Properties>
+              <string name="Name">Shotgun</string>
+              <string name="Source"><![CDATA[--!strict
+
+local pelletGrowth = {
+	{ stat = "Damage", kind = "Add", value = 1.5, source = "shotgun_scaling" },
+	{ stat = "Pellets", kind = "Add", value = 1, source = "shotgun_scaling" },
+}
+
+local levels = {
+	[2] = pelletGrowth,
+	[3] = pelletGrowth,
+	[4] = {
+		{ stat = "Damage", kind = "Add", value = 1.5, source = "shotgun_scaling" },
+		{ stat = "Pellets", kind = "Add", value = 1, source = "shotgun_scaling" },
+		{ stat = "AttackSpeed", kind = "Multiply", value = 1.08, source = "shotgun_scaling" },
+	},
+	[5] = pelletGrowth,
+	[6] = pelletGrowth,
+	[7] = {
+		{ stat = "Damage", kind = "Multiply", value = 1.18, source = "shotgun_scaling" },
+		{ stat = "Spread", kind = "Add", value = -4, source = "shotgun_scaling" },
+	},
+	[8] = pelletGrowth,
+}
+
+local definition = {
+	Id = "shotgun",
+	Name = "Breacher",
+	Description = "Ráfaga de perdigones en cono a corta distancia.",
+	Icon = "💥",
+	MaxLevel = 8,
+	Behavior = "Projectile",
+	BaseStats = {
+		Damage = 5,
+		AttackSpeed = 1.1,
+		Range = 32,
+		ProjectileSpeed = 78,
+		ProjectileCount = 1,
+		Pellets = 6,
+		Spread = 32,
+	},
+	Scaling = levels,
+	Tags = { "projectile", "spread", "close" },
+}
+
+return definition
+]]></string>
+            </Properties>
+          </Item>
+        </Item>
+      </Item>
+      <Item class="ModuleScript" referent="35">
+        <Properties>
+          <string name="Name">Progression</string>
+          <string name="Source"><![CDATA[--!strict
+-- Curva de experiencia. Función pura: sin Roblox, testeable headless.
+local Progression = {}
+
+-- XP necesaria para pasar de `level` a `level + 1`.
+function Progression.xpForNext(level: number): number
+	local steps = math.max(0, level - 1)
+	return 6 + steps * 5 + math.floor(steps ^ 1.6)
+end
+
+function Progression.xpForLevel(level: number): number
+	if level <= 1 then
+		return 0
+	end
+	local total = 0
+	for step = 1, level - 1 do
+		total += Progression.xpForNext(step)
+	end
+	return total
+end
+
+-- Aplica la XP y devuelve el nuevo nivel, la XP dentro del nivel y cuántos
+-- niveles se ganaron (puede ser más de uno con pickups grandes).
+function Progression.addXp(currentLevel: number, currentXp: number, amount: number): (number, number, number)
+	local level = math.max(1, currentLevel)
+	local xp = math.max(0, currentXp) + math.max(0, amount)
+	local gained = 0
+
+	while true do
+		local needed = Progression.xpForNext(level)
+		if xp < needed then
+			break
+		end
+		xp -= needed
+		level += 1
+		gained += 1
+	end
+
+	return level, xp, gained
+end
+
+return Progression
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="36">
+        <Properties>
+          <string name="Name">Rarity</string>
+          <string name="Source"><![CDATA[--!strict
+-- Rareza de las mejoras. El peso base sigue la curva estándar 55/27/12/5/1; la
+-- estadística Luck multiplica el peso de las rarezas altas, de modo que un jugador
+-- con Luck = 2 ve casi el doble de Rare y el doble de Legendario.
+local Rarity = {}
+
+export type RarityId = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary"
+
+Rarity.Order = { "Common", "Uncommon", "Rare", "Epic", "Legendary" }
+
+Rarity.BaseWeight = {
+	Common = 55,
+	Uncommon = 27,
+	Rare = 12,
+	Epic = 5,
+	Legendary = 1,
+}
+
+function Rarity.indexOf(rarity: RarityId): number
+	for index, id in Rarity.Order do
+		if id == rarity then
+			return index - 1
+		end
+	end
+	error(`[Rarity] rareza desconocida: {tostring(rarity)}`)
+end
+
+function Rarity.weightOf(rarity: RarityId, luck: number): number
+	local factor = luck ^ Rarity.indexOf(rarity)
+	return Rarity.BaseWeight[rarity] * factor
+end
+
+-- Sortea una rareza. El generador se inyecta para poder probar la curva sin Roblox.
+function Rarity.roll(rand: () -> number, luck: number): RarityId
+	local total = 0
+	local weights: { number } = {}
+	for index, rarity in Rarity.Order do
+		local weight = Rarity.weightOf(rarity, luck)
+		weights[index] = weight
+		total += weight
+	end
+
+	local target = rand() * total
+	local accumulated = 0
+	for index, rarity in Rarity.Order do
+		accumulated += weights[index]
+		if target <= accumulated then
+			return rarity
+		end
+	end
+	return "Legendary"
+end
+
+return Rarity
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="37">
+        <Properties>
+          <string name="Name">Registry</string>
+          <string name="Source"><![CDATA[--!strict
+-- Registro de contenido: indexa y valida las definiciones de armas, enemigos y
+-- mejoras. Servidor y cliente cargan este mismo registro, así que un error de
+-- contenido (id duplicado, stat inexistente, rareza inválida) revienta al cargar en
+-- los dos lados, en lugar de aparecer a mitad de una partida.
+-- Import dual (ver StatMath.luau): el módulo vecino se resuelve por `script` en Roblox y
+-- por ruta relativa en las pruebas headless con Lune.
+local Types = require(script and script.Parent.Types or "./Types")
+local Rarity = require(script and script.Parent.Rarity or "./Rarity")
+
+local weaponList = {
+	require(script and script.Parent.Definitions.Weapons.Gun or "./Definitions/Weapons/Gun"),
+	require(script and script.Parent.Definitions.Weapons.Shotgun or "./Definitions/Weapons/Shotgun"),
+	require(script and script.Parent.Definitions.Weapons.Chain or "./Definitions/Weapons/Chain"),
+	require(script and script.Parent.Definitions.Weapons.Nova or "./Definitions/Weapons/Nova"),
+	require(script and script.Parent.Definitions.Weapons.Bomb or "./Definitions/Weapons/Bomb"),
+	require(script and script.Parent.Definitions.Weapons.Orbit or "./Definitions/Weapons/Orbit"),
+}
+
+local enemyList = {
+	require(script and script.Parent.Definitions.Enemies.Basic or "./Definitions/Enemies/Basic"),
+}
+
+local upgradeList = {
+	require(script and script.Parent.Definitions.Upgrades.GunDamage or "./Definitions/Upgrades/GunDamage"),
+	require(
+		script and script.Parent.Definitions.Upgrades.GunAttackSpeed
+			or "./Definitions/Upgrades/GunAttackSpeed"
+	),
+	require(
+		script and script.Parent.Definitions.Upgrades.ShotgunUnlock or "./Definitions/Upgrades/ShotgunUnlock"
+	),
+	require(
+		script and script.Parent.Definitions.Upgrades.ShotgunDamage or "./Definitions/Upgrades/ShotgunDamage"
+	),
+	require(
+		script and script.Parent.Definitions.Upgrades.ChainUnlock or "./Definitions/Upgrades/ChainUnlock"
+	),
+	require(
+		script and script.Parent.Definitions.Upgrades.ChainDamage or "./Definitions/Upgrades/ChainDamage"
+	),
+	require(script and script.Parent.Definitions.Upgrades.NovaUnlock or "./Definitions/Upgrades/NovaUnlock"),
+	require(script and script.Parent.Definitions.Upgrades.NovaDamage or "./Definitions/Upgrades/NovaDamage"),
+	require(script and script.Parent.Definitions.Upgrades.BombUnlock or "./Definitions/Upgrades/BombUnlock"),
+	require(script and script.Parent.Definitions.Upgrades.BombDamage or "./Definitions/Upgrades/BombDamage"),
+	require(
+		script and script.Parent.Definitions.Upgrades.OrbitUnlock or "./Definitions/Upgrades/OrbitUnlock"
+	),
+	require(
+		script and script.Parent.Definitions.Upgrades.OrbitDamage or "./Definitions/Upgrades/OrbitDamage"
+	),
+	require(script and script.Parent.Definitions.Upgrades.Vitality or "./Definitions/Upgrades/Vitality"),
+}
+
+local VALID_STATS: { [string]: boolean } = {
+	MaxHealth = true,
+	Armor = true,
+	MoveSpeed = true,
+	Damage = true,
+	AttackSpeed = true,
+	CriticalChance = true,
+	CriticalDamage = true,
+	Range = true,
+	ProjectileSpeed = true,
+	ProjectileCount = true,
+	Pellets = true,
+	Spread = true,
+	PickupRadius = true,
+	XPModifier = true,
+	Luck = true,
+	-- Stats de los comportamientos de area, cadena y contacto.
+	Radius = true,
+	BlastRadius = true,
+	Arc = true,
+	ChainCount = true,
+	ChainRange = true,
+	ChainFalloff = true,
+	BladeCount = true,
+	OrbitRadius = true,
+	OrbitSpeed = true,
+	HitCooldown = true,
+}
+
+local STARTING_WEAPON_ID = "gun"
+
+local function indexById<T>(list: { T }, kind: string): { [string]: T }
+	local byId = {}
+	for _, entry in list do
+		local id = entry.Id :: string
+		if byId[id] then
+			error(`[Registry] id duplicado en {kind}: {id}`)
+		end
+		byId[id] = entry
+	end
+	return byId
+end
+
+local function validateModifiers(source: string, modifiers: { Types.StatModifier })
+	for _, modifier in modifiers do
+		if not VALID_STATS[modifier.stat] then
+			error(`[Registry] stat desconocido "{tostring(modifier.stat)}" en {source}`)
+		end
+		if modifier.kind ~= "Add" and modifier.kind ~= "Multiply" then
+			error(`[Registry] tipo de modificador inválido en {source}`)
+		end
+	end
+end
+
+local Weapons = indexById(weaponList, "Weapons")
+local Enemies = indexById(enemyList, "Enemies")
+local Upgrades = indexById(upgradeList, "Upgrades")
+
+for _, weapon in weaponList do
+	if weapon.MaxLevel < 1 then
+		error(`[Registry] arma {weapon.Id} con MaxLevel inválido`)
+	end
+	for level, modifiers in weapon.Scaling do
+		if level < 2 or level > weapon.MaxLevel then
+			error(`[Registry] arma {weapon.Id} escala en nivel {level}, fuera de 2..{weapon.MaxLevel}`)
+		end
+		validateModifiers(weapon.Id, modifiers)
+	end
+	local base = weapon.BaseStats
+	if (base.Damage or 0) <= 0 or (base.AttackSpeed or 0) <= 0 then
+		error(`[Registry] arma {weapon.Id} necesita Damage y AttackSpeed base`)
+	end
+end
+
+for _, enemy in enemyList do
+	if enemy.Health <= 0 or enemy.Speed <= 0 then
+		error(`[Registry] enemigo {enemy.Id} con Health o Speed inválidos`)
+	end
+end
+
+for _, upgrade in upgradeList do
+	if upgrade.MaxLevel < 1 or upgrade.Weight <= 0 then
+		error(`[Registry] mejora {upgrade.Id} con MaxLevel o Weight inválidos`)
+	end
+	if not Rarity.BaseWeight[upgrade.Rarity] then
+		error(`[Registry] mejora {upgrade.Id} con rareza desconocida {tostring(upgrade.Rarity)}`)
+	end
+	if upgrade.TargetId and not Weapons[upgrade.TargetId] then
+		error(`[Registry] mejora {upgrade.Id} apunta al arma inexistente {upgrade.TargetId}`)
+	end
+	if upgrade.Kind == "NewWeapon" and not upgrade.Requires then
+		error(`[Registry] mejora {upgrade.Id} de tipo NewWeapon necesita Requires`)
+	end
+	validateModifiers(upgrade.Id, upgrade.Modifiers)
+end
+
+-- Un arma que ni es la inicial ni tiene una carta que la desbloquee es contenido
+-- muerto: existe en el registro pero nunca puede aparecer en una partida.
+local unlockable: { [string]: boolean } = { [STARTING_WEAPON_ID] = true }
+for _, upgrade in upgradeList do
+	if upgrade.Kind == "NewWeapon" and upgrade.TargetId then
+		unlockable[upgrade.TargetId] = true
+	end
+end
+for _, weapon in weaponList do
+	if not unlockable[weapon.Id] then
+		error(`[Registry] el arma {weapon.Id} no tiene mejora que la desbloquee`)
+	end
+end
+
+return {
+	Weapons = Weapons,
+	Enemies = Enemies,
+	Upgrades = Upgrades,
+	StartingWeaponId = STARTING_WEAPON_ID,
+}
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="38">
+        <Properties>
+          <string name="Name">Remotes</string>
+          <string name="Source"><![CDATA[--!strict
+-- Contrato de red. Un solo punto de acceso a los remotes: el cliente nunca los
+-- busca por su cuenta y el servidor siempre los referencia desde aquí.
+--
+-- Los payloads son datos de presentación o peticiones. Nunca se acepta desde el
+-- cliente daño, XP, recompensas ni precios.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local function remote(name: string, className: string): Instance
+	local folder = ReplicatedStorage:WaitForChild("Remotes", 10)
+	if not folder then
+		error("[Remotes] ReplicatedStorage.Remotes no llegó desde el servidor")
+	end
+	local instance = folder:WaitForChild(name, 10)
+	if not instance then
+		error(`[Remotes] falta el remote "{name}"`)
+	end
+	if not instance:IsA(className) then
+		error(`[Remotes] "{name}" debería ser {className}`)
+	end
+	return instance
+end
+
+return {
+	-- Servidor → cliente: (state: MatchState, elapsed: number, offers: {UpgradeOffer}?)
+	MatchStateChanged = remote("MatchStateChanged", "RemoteEvent") :: RemoteEvent,
+	-- Servidor → cliente: snapshot completo del HUD (RunSnapshot).
+	RunSnapshot = remote("RunSnapshot", "RemoteEvent") :: RemoteEvent,
+	-- Servidor → cliente: una carta ya elegida (string id).
+	UpgradeChosen = remote("UpgradeChosen", "RemoteEvent") :: RemoteEvent,
+	-- Cliente → servidor: el cliente ya registró sus listeners; pide su estado.
+	ClientReady = remote("ClientReady", "RemoteEvent") :: RemoteEvent,
+	-- Cliente → servidor: petición de elegir carta (string id). Se valida contra
+	-- el conjunto de ofertas pendientes y se consume una sola vez.
+	RequestUpgrade = remote("RequestUpgrade", "RemoteEvent") :: RemoteEvent,
+	-- Servidor → cliente: feedback visual descartable (kind: string, position, magnitude).
+	CombatEffect = remote("CombatEffect", "UnreliableRemoteEvent") :: UnreliableRemoteEvent,
+}
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="39">
+        <Properties>
+          <string name="Name">StatMath</string>
+          <string name="Source"><![CDATA[--!strict
+-- Cálculo de estadísticas. Todo puro, sin Roblox: se puede probar headless.
+--
+-- Pipeline de jugador:
+--   base (Config.PlayerBaseStats)
+--   + modificadores Add
+--   x modificadores Multiply
+--   = stats finales
+--
+-- Pipeline de arma:
+--   base de la definición
+--   + scaling por nivel
+--   + modificadores de mejoras dirigidas a esa arma
+--   x multiplicadores globales del jugador
+--   = stats del arma
+-- Import dual: en Roblox se resuelve el ModuleScript vecino; fuera de Studio (las
+-- pruebas headless con Lune) cae a la ruta relativa, porque Lune no expone `script`.
+local Types = require(script and script.Parent.Types or "./Types")
+
+type StatModifier = Types.StatModifier
+type StatBlock = Types.StatBlock
+type WeaponDefinition = Types.WeaponDefinition
+
+local StatMath = {}
+
+function StatMath.apply(stats: StatBlock, modifier: StatModifier)
+	local current = stats[modifier.stat] or 0
+	if modifier.kind == "Add" then
+		stats[modifier.stat] = current + modifier.value
+	else
+		stats[modifier.stat] = current * modifier.value
+	end
+end
+
+-- Los "Add" se resuelven antes que los "Multiply" para que el resultado no dependa
+-- del orden en el que se registraron los modificadores.
+function StatMath.resolve(base: StatBlock, modifiers: { StatModifier }): StatBlock
+	local stats = table.clone(base)
+	for _, modifier in modifiers do
+		if modifier.kind == "Add" then
+			StatMath.apply(stats, modifier)
+		end
+	end
+	for _, modifier in modifiers do
+		if modifier.kind == "Multiply" then
+			StatMath.apply(stats, modifier)
+		end
+	end
+	return stats
+end
+
+-- Las estadísticas globales del jugador son multiplicadores por diseño:
+-- Config.PlayerBaseStats deja Damage/AttackSpeed/Range/ProjectileSpeed en 1 y
+-- ProjectileCount/Pellets/Spread en 0, así que añadir una mejora global nunca
+-- pisa el valor propio del arma.
+local GLOBAL_MULTIPLIERS: { Types.StatKey } = { "Damage", "AttackSpeed", "Range", "ProjectileSpeed" }
+local GLOBAL_ADDITIONS: { Types.StatKey } = { "ProjectileCount", "Pellets", "Spread" }
+
+function StatMath.weapon(
+	definition: WeaponDefinition,
+	level: number,
+	upgrades: { StatModifier },
+	playerStats: StatBlock
+): StatBlock
+	local stats = table.clone(definition.BaseStats)
+
+	for step = 2, level do
+		local modifiers = definition.Scaling[step]
+		if modifiers then
+			for _, modifier in modifiers do
+				StatMath.apply(stats, modifier)
+			end
+		end
+	end
+
+	for _, modifier in upgrades do
+		StatMath.apply(stats, modifier)
+	end
+
+	for _, stat in GLOBAL_MULTIPLIERS do
+		stats[stat] = (stats[stat] or 0) * (playerStats[stat] or 1)
+	end
+	for _, stat in GLOBAL_ADDITIONS do
+		stats[stat] = (stats[stat] or 0) + (playerStats[stat] or 0)
+	end
+
+	return stats
+end
+
+return StatMath
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="40">
+        <Properties>
+          <string name="Name">Types</string>
+          <string name="Source"><![CDATA[--!strict
+-- Tipos compartidos entre servidor y cliente.
+-- Regla: este módulo no toca la API de Roblox, para que los módulos puros que lo
+-- consumen (definiciones, progresión, rareza) se puedan probar fuera de Studio.
+
+export type StatKey =
+	| "MaxHealth"
+	| "Armor"
+	| "MoveSpeed"
+	| "Damage"
+	| "AttackSpeed"
+	| "CriticalChance"
+	| "CriticalDamage"
+	| "Range"
+	| "ProjectileSpeed"
+	| "ProjectileCount"
+	| "Pellets"
+	| "Spread"
+	| "PickupRadius"
+	| "XPModifier"
+	| "Luck"
+	| "Radius"
+	| "BlastRadius"
+	| "Arc"
+	| "ChainCount"
+	| "ChainRange"
+	| "ChainFalloff"
+	| "BladeCount"
+	| "OrbitRadius"
+	| "OrbitSpeed"
+	| "HitCooldown"
+
+-- "Add" suma el valor, "Multiply" escala el acumulado. Se aplican en ese orden
+-- sobre el bloque base para que el resultado sea intuitivo de leer.
+export type ModifierKind = "Add" | "Multiply"
+
+export type StatModifier = {
+	stat: StatKey,
+	kind: ModifierKind,
+	value: number,
+	source: string,
+	-- Duración en segundos. nil = permanente durante la partida.
+	duration: number?,
+}
+
+export type StatBlock = { [StatKey]: number }
+
+export type Rarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary"
+
+-- Identificador de comportamiento de ataque. Un comportamiento nuevo se registra
+-- en Server/Combat/WeaponBehaviors.luau sin tocar WeaponRuntime ni las definiciones.
+export type WeaponBehaviorId = "Projectile" | "Nova" | "Chain" | "Bomb" | "Orbit"
+
+export type WeaponDefinition = {
+	Id: string,
+	Name: string,
+	Description: string,
+	Icon: string,
+	MaxLevel: number,
+	Behavior: WeaponBehaviorId,
+	BaseStats: StatBlock,
+	-- Clave = nivel mínimo en el que se aplican sus modificadores.
+	Scaling: { [number]: { StatModifier } },
+	Tags: { string },
+	-- false = el arma no necesita un enemigo al que apuntar, así que WeaponRuntime se
+	-- ahorra la búsqueda del objetivo más cercano. Por defecto true.
+	RequiresTarget: boolean?,
+}
+
+export type EnemyAttackType = "Contact" | "Projectile" | "None"
+
+export type EnemyDefinition = {
+	Id: string,
+	Name: string,
+	Health: number,
+	Speed: number,
+	Damage: number,
+	AttackInterval: number,
+	AttackRange: number,
+	XPReward: number,
+	Size: number,
+	AttackType: EnemyAttackType,
+	Tags: { string },
+}
+
+export type UpgradeKind = "NewWeapon" | "WeaponUpgrade" | "Stat" | "Passive"
+
+-- Vista de la partida que las definiciones consultan para requisitos y evolución.
+export type RunView = {
+	level: number,
+	weaponLevels: { [string]: number },
+	upgradeLevels: { [string]: number },
+}
+
+export type UpgradeDefinition = {
+	Id: string,
+	Kind: UpgradeKind,
+	Rarity: Rarity,
+	Name: string,
+	Description: string,
+	Icon: string,
+	MaxLevel: number,
+	Weight: number,
+	-- Arma a la que aplica: "NewWeapon" y "WeaponUpgrade" lo requieren.
+	TargetId: string?,
+	Modifiers: { StatModifier },
+	-- Punto de extensión para evoluciones: sin requisitos devuelve nil.
+	Requires: ((run: RunView) -> boolean)?,
+}
+
+-- Payload que el cliente pinta en las cartas de subida de nivel.
+export type UpgradeOffer = {
+	Id: string,
+	Kind: UpgradeKind,
+	Rarity: Rarity,
+	Name: string,
+	Description: string,
+	Icon: string,
+	TargetId: string?,
+	CurrentLevel: number,
+	NextLevel: number,
+	MaxLevel: number,
+}
+
+export type WeaponView = {
+	Id: string,
+	Name: string,
+	Icon: string,
+	Level: number,
+	MaxLevel: number,
+}
+
+export type PassiveView = {
+	Id: string,
+	Name: string,
+	Icon: string,
+	Level: number,
+	MaxLevel: number,
+}
+
+export type BuffView = {
+	Name: string,
+	Remaining: number,
+}
+
+export type RunSnapshot = {
+	State: MatchState,
+	Elapsed: number,
+	Health: number,
+	MaxHealth: number,
+	Level: number,
+	XP: number,
+	XPToNext: number,
+	Weapons: { WeaponView },
+	Passives: { PassiveView },
+	Buffs: { BuffView },
+	MoveSpeed: number,
+	PickupRadius: number,
+}
+
+export type MatchState = "Lobby" | "Starting" | "Playing" | "LevelUp" | "Event" | "Boss" | "Victory" | "Defeat"
+
+-- Este módulo solo exporta tipos. La tabla vacía evita que el require devuelva nil y
+-- que el analizador de Studio marque los usos `Types.Algo` como acceso a nil.
+return {}
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="41">
+        <Properties>
+          <string name="Name">UpgradeOffers</string>
+          <string name="Source"><![CDATA[--!strict
+-- Generación de las ofertas de subida de nivel.
+--
+-- Es una función pura a propósito: el servidor la llama, pero se puede probar sin
+-- Studio. Además del peso por rareza hay garantías explícitas, porque el diseño
+-- pide que ninguna partida se vuelva frustrante por mala suerte.
+-- Import dual (ver StatMath.luau): el vecino se resuelve por `script` en Roblox y por
+-- ruta relativa en las pruebas headless con Lune.
+local Types = require(script and script.Parent.Types or "./Types")
+local Registry = require(script and script.Parent.Registry or "./Registry")
+local Rarity = require(script and script.Parent.Rarity or "./Rarity")
+
+type RunView = Types.RunView
+type UpgradeDefinition = Types.UpgradeDefinition
+type UpgradeOffer = Types.UpgradeOffer
+
+-- Orden estable para que las pruebas y el reparto de pesos sean deterministas.
+local UPGRADE_IDS: { string } = {}
+for id in Registry.Upgrades do
+	table.insert(UPGRADE_IDS, id)
+end
+table.sort(UPGRADE_IDS)
+
+local function isEligible(definition: UpgradeDefinition, run: RunView): boolean
+	local current = run.upgradeLevels[definition.Id] or 0
+	if current >= definition.MaxLevel then
+		return false
+	end
+	return if definition.Requires then definition.Requires(run) else true
+end
+
+local function rarityWeight(definition: UpgradeDefinition, luck: number): number
+	return definition.Weight * Rarity.weightOf(definition.Rarity, luck)
+end
+
+local function weightedPick(
+	candidates: { UpgradeDefinition },
+	luck: number,
+	rand: () -> number
+): UpgradeDefinition?
+	local weights = table.create(#candidates)
+	local total = 0
+	for index, definition in candidates do
+		weights[index] = rarityWeight(definition, luck)
+		total += weights[index]
+	end
+	if total <= 0 then
+		return nil
+	end
+
+	local target = rand() * total
+	local accumulated = 0
+	for index, definition in candidates do
+		accumulated += weights[index]
+		if target <= accumulated then
+			return definition
+		end
+	end
+	return candidates[#candidates]
+end
+
+local function remaining(
+	candidates: { UpgradeDefinition },
+	taken: { [string]: boolean },
+	predicate: ((UpgradeDefinition) -> boolean)?
+): { UpgradeDefinition }
+	local pool = {}
+	for _, definition in candidates do
+		if not taken[definition.Id] and (not predicate or predicate(definition)) then
+			table.insert(pool, definition)
+		end
+	end
+	return pool
+end
+
+local function ownsWeapon(run: RunView, weaponId: string?): boolean
+	return weaponId ~= nil and (run.weaponLevels[weaponId] or 0) > 0
+end
+
+local Offers = {}
+
+function Offers.generate(run: RunView, luck: number, rand: () -> number, count: number?): { UpgradeOffer }
+	local wanted = count or 3
+	local luckValue = math.max(0.05, luck)
+
+	local eligible: { UpgradeDefinition } = {}
+	for _, id in UPGRADE_IDS do
+		local definition = Registry.Upgrades[id]
+		if isEligible(definition, run) then
+			table.insert(eligible, definition)
+		end
+	end
+
+	local chosen: { UpgradeDefinition } = {}
+	local taken: { [string]: boolean } = {}
+
+	local ownedWeapons = 0
+	for _, level in run.weaponLevels do
+		if level > 0 then
+			ownedWeapons += 1
+		end
+	end
+
+	local function isNewWeapon(definition: UpgradeDefinition): boolean
+		return definition.Kind == "NewWeapon"
+	end
+
+	local function isOwnedWeaponUpgrade(definition: UpgradeDefinition): boolean
+		return definition.Kind == "WeaponUpgrade" and ownsWeapon(run, definition.TargetId)
+	end
+
+	-- Garantía 1: con una sola arma siempre hay una carta de arma nueva, para que
+	-- la build pueda diversificar aunque el sorteo sea pobre.
+	if ownedWeapons < 2 and #chosen < wanted then
+		local definition = weightedPick(remaining(eligible, taken, isNewWeapon), luckValue, rand)
+		if definition then
+			table.insert(chosen, definition)
+			taken[definition.Id] = true
+		end
+	end
+
+	-- Garantía 2: siempre incluir la mejora de un arma que el jugador ya lleva, para
+	-- que exista una elección segura.
+	local hasOwnedUpgrade = false
+	for _, definition in chosen do
+		if isOwnedWeaponUpgrade(definition) then
+			hasOwnedUpgrade = true
+			break
+		end
+	end
+	if not hasOwnedUpgrade and #chosen < wanted then
+		local definition = weightedPick(remaining(eligible, taken, isOwnedWeaponUpgrade), luckValue, rand)
+		if definition then
+			table.insert(chosen, definition)
+			taken[definition.Id] = true
+		end
+	end
+
+	while #chosen < wanted do
+		local definition = weightedPick(remaining(eligible, taken, nil), luckValue, rand)
+		if not definition then
+			break
+		end
+		table.insert(chosen, definition)
+		taken[definition.Id] = true
+	end
+
+	local offers: { UpgradeOffer } = {}
+	for index, definition in chosen do
+		local current = run.upgradeLevels[definition.Id] or 0
+		local isUnlock = definition.Kind == "NewWeapon"
+		offers[index] = {
+			Id = definition.Id,
+			Kind = definition.Kind,
+			Rarity = definition.Rarity,
+			Name = definition.Name,
+			Description = definition.Description,
+			Icon = definition.Icon,
+			TargetId = definition.TargetId,
+			CurrentLevel = if isUnlock then 0 else current,
+			NextLevel = if isUnlock then 1 else current + 1,
+			MaxLevel = definition.MaxLevel,
+		}
+	end
+
+	return offers
+end
+
+return Offers
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="Folder" referent="42">
+        <Properties>
+          <string name="Name">Utilities</string>
+        </Properties>
+        <Item class="ModuleScript" referent="43">
+          <Properties>
+            <string name="Name">Format</string>
+            <string name="Source"><![CDATA[--!strict
+-- Utilidades de presentación sin estado.
+local Format = {}
+
+function Format.clock(seconds: number): string
+	local total = math.max(0, math.floor(seconds))
+	local minutes = math.floor(total / 60)
+	local rest = total % 60
+	return `{minutes}:{if rest < 10 then "0" else ""}{rest}`
+end
+
+function Format.percent(value: number, decimals: number?): string
+	local places = decimals or 0
+	return `{math.floor(value * 10 ^ places + 0.5) / 10 ^ places * 100}%`
+end
+
+return Format
+]]></string>
+          </Properties>
+        </Item>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="ServerScriptService" referent="44">
+    <Properties>
+      <string name="Name">ServerScriptService</string>
+    </Properties>
+    <Item class="Folder" referent="45">
+      <Properties>
+        <string name="Name">Server</string>
+      </Properties>
+      <Item class="Folder" referent="46">
+        <Properties>
+          <string name="Name">Combat</string>
+        </Properties>
+        <Item class="ModuleScript" referent="47">
+          <Properties>
+            <string name="Name">OrbitBlades</string>
+            <string name="Source"><![CDATA[--!strict
+-- Cuchillas orbitando al jugador. Es el unico arma que no dispara por cadencia: son
+-- piezas persistentes que giran alrededor del personaje y cortan por contacto.
+--
+-- El ritmo de corte lo lleva un enfriamiento POR ENEMIGO guardado en el propio
+-- enemigo, no en un mapa aparte: asi no hay nada que limpiar y el recorte es gratis
+-- cuando la horda se vacia.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Pool = require(script.Parent.Parent.Utility.Pool)
+local EnemyRegistry = require(script.Parent.Parent.Enemies.EnemyRegistry)
+local PlayerAvatar = require(script.Parent.Parent.PlayerAvatar)
+
+type Blade = {
+	Part: Part,
+	Lease: any,
+}
+
+type Orbit = {
+	Blades: { Blade },
+	Damage: number,
+	IsCrit: boolean,
+	Radius: number,
+	Speed: number,
+	Cooldown: number,
+	Angle: number,
+}
+
+-- Margen que se anade al radio de contacto al pedir celdas a la rejilla, para
+-- incluir el cuerpo completo de un enemigo grande sin conocer su tamano antes.
+local QUERY_PAD = 8
+
+local sets: { [Player]: Orbit } = {}
+local container: Folder = nil
+local pool: Pool.Pooled = nil
+
+local function buildTemplate(): Part
+	local part = Instance.new("Part")
+	part.Name = "Blade"
+	part.Size = Config.Orbit.BladeSize
+	part.Color = Config.Orbit.BladeColor
+	part.Material = Enum.Material.Neon
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	return part
+end
+
+local OrbitBlades = {}
+
+function OrbitBlades.init()
+	if container then
+		return
+	end
+	container = Instance.new("Folder")
+	container.Name = "OrbitBlades"
+	container.Parent = workspace
+	pool = Pool.new(buildTemplate(), Config.Orbit.MaxBlades * 4)
+end
+
+function OrbitBlades.reset(player: Player)
+	local orbit = sets[player]
+	if not orbit or not pool then
+		return
+	end
+	for _, blade in orbit.Blades do
+		pool:Release(blade.Part, blade.Lease)
+	end
+	sets[player] = nil
+end
+
+function OrbitBlades.clearAll()
+	local players = table.create(0)
+	for player in sets do
+		table.insert(players, player)
+	end
+	for _, player in players do
+		OrbitBlades.reset(player)
+	end
+end
+
+-- Reconcilia el juego de cuchillas de un jugador con sus estadisticas actuales. Lo
+-- llama el comportamiento del arma a su propia cadencia, asi que subir de nivel o
+-- comprar una mejora se refleja en el siguiente disparo sin tocar nada mas.
+function OrbitBlades.configure(player: Player, stats: { [string]: number }, damage: number, isCrit: boolean)
+	if not pool then
+		return
+	end
+
+	local wanted = math.clamp(math.round(stats.BladeCount or 0), 0, Config.Orbit.MaxBlades)
+	if wanted <= 0 then
+		OrbitBlades.reset(player)
+		return
+	end
+
+	local orbit = sets[player]
+	if not orbit then
+		orbit = {
+			Blades = {},
+			Damage = damage,
+			IsCrit = isCrit,
+			Radius = 6,
+			Speed = 2.5,
+			Cooldown = 0.45,
+			Angle = 0,
+		}
+		sets[player] = orbit
+	end
+
+	orbit.Damage = damage
+	orbit.IsCrit = isCrit
+	orbit.Radius = math.max(2, stats.OrbitRadius or 6)
+	orbit.Speed = math.max(0.2, stats.OrbitSpeed or 2.5)
+	orbit.Cooldown = math.max(Config.Orbit.HitCooldownFloor, stats.HitCooldown or 0.45)
+
+	while #orbit.Blades > wanted do
+		local blade = table.remove(orbit.Blades)
+		pool:Release(blade.Part, blade.Lease)
+	end
+	while #orbit.Blades < wanted do
+		local acquired, lease = pool:Get(function(instance)
+			local part = instance :: Part
+			part.Size = Config.Orbit.BladeSize
+			part.Color = Config.Orbit.BladeColor
+			part.Parent = container
+		end)
+		table.insert(orbit.Blades, { Part = acquired :: Part, Lease = lease })
+	end
+end
+
+local function cut(position: Vector3, orbit: Orbit, now: number)
+	local contact = Config.Orbit.ContactRadius
+	for _, enemy in EnemyRegistry.queryRadius(position, contact + QUERY_PAD) do
+		if enemy.HitLockUntil <= now then
+			local dx = enemy.Position.X - position.X
+			local dz = enemy.Position.Z - position.Z
+			local reach = enemy.Definition.Size * 0.5 + contact
+			local distance = dx * dx + dz * dz
+			if distance <= reach * reach then
+				enemy.HitLockUntil = now + orbit.Cooldown
+				EnemyRegistry.damage(enemy, orbit.Damage, orbit.IsCrit)
+			end
+		end
+	end
+end
+
+function OrbitBlades.update(dt: number, now: number)
+	for player, orbit in sets do
+		local root = PlayerAvatar.root(player)
+		-- Sin personaje no hay centro orbital: se recoge el juego entero en vez de
+		-- dejar las cuchillas colgadas en el aire.
+		if not root or not player.Parent then
+			OrbitBlades.reset(player)
+			continue
+		end
+
+		orbit.Angle += orbit.Speed * dt
+		local count = #orbit.Blades
+		if count == 0 then
+			continue
+		end
+
+		-- A la altura del cuerpo de los enemigos, no a la del jugador: asi el barrido
+		-- se ve pasar por la horda en vez de flotar por encima de ella.
+		local center = Vector3.new(root.Position.X, Config.Arena.FloorY + 1.2, root.Position.Z)
+		local spacing = math.pi * 2 / count
+
+		for index, blade in orbit.Blades do
+			local angle = orbit.Angle + spacing * index
+			local cos, sin = math.cos(angle), math.sin(angle)
+			local position = center + Vector3.new(cos, 0, sin) * orbit.Radius
+			-- Orientada tangente al giro, que es como se lee una cuchilla girando.
+			blade.Part.CFrame = CFrame.lookAt(position, position + Vector3.new(-sin, 0, cos))
+			cut(position, orbit, now)
+		end
+	end
+end
+
+return OrbitBlades
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="48">
+          <Properties>
+            <string name="Name">Projectiles</string>
+            <string name="Source"><![CDATA[--!strict
+-- Proyectiles pooled y autoritativos. El servidor decide los impactos; el cliente
+-- solo ve la posición replicada de la partícula.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
+local Pool = require(script.Parent.Parent.Utility.Pool)
+local EnemyRegistry = require(script.Parent.Parent.Enemies.EnemyRegistry)
+
+-- Sub-pasos para que un frame lento no haga que el proyectil atraviese al enemigo
+-- sin comprobar el impacto.
+local MAX_STEP_DISTANCE = 2
+
+local Projectiles = {}
+
+type Projectile = {
+	Part: BasePart,
+	Position: Vector3,
+	Velocity: Vector3,
+	Damage: number,
+	IsCrit: boolean,
+	Owner: Player,
+	Life: number,
+	-- Radio de explosión. 0 = proyectil simple que se devuelve al pool al impactar.
+	BlastRadius: number,
+	-- Gravedad vertical. 0 = vuelo recto; > 0 = parábola que acaba detonando.
+	Gravity: number,
+	Slot: number,
+	Lease: any,
+}
+
+local projectiles: { Projectile } = {}
+local container: Folder = nil
+local pool: Pool.Pooled = nil
+
+local function buildTemplate(): Part
+	local part = Instance.new("Part")
+	part.Name = "Projectile"
+	part.Shape = Enum.PartType.Ball
+	part.Size = Vector3.new(0.7, 0.7, 0.7)
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	return part
+end
+
+function Projectiles.init()
+	if container then
+		return
+	end
+	container = Instance.new("Folder")
+	container.Name = "Projectiles"
+	container.Parent = workspace
+	pool = Pool.new(buildTemplate(), 96)
+end
+
+function Projectiles.count(): number
+	return #projectiles
+end
+
+-- Camino común de los dos tipos de proyectil. La única diferencia entre una bala y
+-- una bomba son los dos ultimos parametros, de modo que el pool, el array y la
+-- simulacion viven en un solo sitio.
+local function launch(
+	origin: Vector3,
+	direction: Vector3,
+	damage: number,
+	speed: number,
+	lifetime: number,
+	owner: Player,
+	isCrit: boolean,
+	blastRadius: number,
+	gravity: number
+)
+	if not pool or direction.Magnitude < 0.01 then
+		return
+	end
+
+	local explosive = blastRadius > 0
+	local radius = if explosive then Config.Projectile.BombRadius else Config.Projectile.Radius
+	local color = if explosive
+		then Color3.fromRGB(255, 164, 68)
+		elseif isCrit then Color3.fromRGB(255, 200, 60)
+		else Color3.fromRGB(255, 240, 200)
+
+	local acquired, lease = pool:Get(function(instance)
+		local part = instance :: Part
+		part.Size = Vector3.new(radius * 2, radius * 2, radius * 2)
+		part.Color = color
+		part.Material = Enum.Material.Neon
+		part.Transparency = 0.1
+		part.CFrame = CFrame.new(origin)
+		part.Parent = container
+	end)
+
+	table.insert(projectiles, {
+		Part = acquired :: Part,
+		Position = origin,
+		Velocity = direction.Unit * math.max(speed, Config.Projectile.SpeedFloor),
+		Damage = damage,
+		IsCrit = isCrit,
+		Owner = owner,
+		Life = math.min(lifetime, Config.Projectile.MaxLifetime),
+		BlastRadius = blastRadius,
+		Gravity = gravity,
+		Slot = #projectiles + 1,
+		Lease = lease,
+	})
+end
+
+-- Bala simple: un impacto y desaparece.
+function Projectiles.spawn(
+	origin: Vector3,
+	direction: Vector3,
+	damage: number,
+	speed: number,
+	lifetime: number,
+	owner: Player,
+	isCrit: boolean
+)
+	launch(origin, direction, damage, speed, lifetime, owner, isCrit, 0, 0)
+end
+
+-- Bomba: vuela en parbola y detona al tocar el suelo, al tocar un enemigo o al
+-- agotar su tiempo de vuelo.
+function Projectiles.spawnBomb(
+	origin: Vector3,
+	direction: Vector3,
+	damage: number,
+	speed: number,
+	lifetime: number,
+	owner: Player,
+	isCrit: boolean,
+	blastRadius: number
+)
+	launch(
+		origin,
+		direction,
+		damage,
+		speed,
+		lifetime,
+		owner,
+		isCrit,
+		math.max(blastRadius, 1),
+		Config.Projectile.Gravity
+	)
+end
+
+local function release(index: number)
+	local projectile = projectiles[index]
+	local slot = projectile.Slot
+	local last = projectiles[#projectiles]
+	projectiles[slot] = last
+	last.Slot = slot
+	table.remove(projectiles)
+	pool:Release(projectile.Part, projectile.Lease)
+end
+
+local function hitAt(position: Vector3): EnemyRegistry.Enemy?
+	local best: EnemyRegistry.Enemy? = nil
+	local bestDistance = math.huge
+	for _, enemy in EnemyRegistry.queryRadius(position, Config.Projectile.Radius * 2) do
+		local dx = enemy.Position.X - position.X
+		local dz = enemy.Position.Z - position.Z
+		local reach = enemy.Definition.Size * 0.5 + Config.Projectile.Radius
+		local distance = dx * dx + dz * dz
+		if distance <= reach * reach and distance < bestDistance then
+			bestDistance = distance
+			best = enemy
+		end
+	end
+	return best
+end
+
+-- Detonacion: daña a todo lo que haya dentro del radio. Recorrer la tabla de la
+-- rejilla mientras se mata es seguro: damage() saca el enemigo de la lista principal,
+-- no de esa copia, y un enemigo ya muerto se ignora por su propio Alive.
+local function explode(position: Vector3, damage: number, isCrit: boolean, radius: number)
+	for _, enemy in EnemyRegistry.queryRadius(position, radius) do
+		local dx = enemy.Position.X - position.X
+		local dz = enemy.Position.Z - position.Z
+		local reach = enemy.Definition.Size * 0.5 + radius
+		local distance = dx * dx + dz * dz
+		if distance <= reach * reach then
+			EnemyRegistry.damage(enemy, damage, isCrit)
+		end
+	end
+	Remotes.CombatEffect:FireAllClients("explosion", position, radius)
+end
+
+-- El final del vuelo: una bomba estalla a ras de suelo, una bala simple solo vuelve
+-- al pool.
+local function detonate(index: number)
+	local projectile = projectiles[index]
+	if projectile.BlastRadius > 0 then
+		local position = Vector3.new(projectile.Position.X, Config.Arena.FloorY, projectile.Position.Z)
+		explode(position, projectile.Damage, projectile.IsCrit, projectile.BlastRadius)
+	end
+	release(index)
+end
+
+local function step(index: number, dt: number)
+	local projectile = projectiles[index]
+
+	if projectile.Gravity > 0 then
+		projectile.Velocity += Vector3.new(0, -projectile.Gravity * dt, 0)
+	end
+
+	local travel = projectile.Velocity * dt
+	local distance = travel.Magnitude
+	local steps = math.clamp(math.ceil(distance / MAX_STEP_DISTANCE), 1, 8)
+
+	for _ = 1, steps do
+		projectile.Position += travel / steps
+		if projectile.Position.Y <= Config.Arena.FloorY then
+			detonate(index)
+			return
+		end
+		local enemy = hitAt(projectile.Position)
+		if enemy then
+			-- Una bomba no golpea dos veces al impacto: la detonacion ya incluye al
+			-- enemigo que ha tocado, asi que solo se cuenta el radio.
+			if projectile.BlastRadius > 0 then
+				explode(projectile.Position, projectile.Damage, projectile.IsCrit, projectile.BlastRadius)
+			else
+				EnemyRegistry.damage(enemy, projectile.Damage, projectile.IsCrit)
+			end
+			release(index)
+			return
+		end
+	end
+
+	projectile.Life -= dt
+	if projectile.Life <= 0 then
+		detonate(index)
+		return
+	end
+	projectile.Part.CFrame = CFrame.new(projectile.Position)
+end
+
+function Projectiles.update(dt: number)
+	for index = #projectiles, 1, -1 do
+		step(index, dt)
+	end
+end
+
+function Projectiles.clearAll()
+	for index = #projectiles, 1, -1 do
+		release(index)
+	end
+end
+
+return Projectiles
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="49">
+          <Properties>
+            <string name="Name">WeaponBehaviors</string>
+            <string name="Source"><![CDATA[--!strict
+-- Registro de comportamientos de ataque. WeaponRuntime decide cuándo dispara; aquí
+-- vive únicamente cómo se ejecuta cada ataque. Añadir un arma con un patrón nuevo
+-- es añadir una entrada en este mapa, sin tocar el bucle de armas ni el pool.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
+local Stats = require(script.Parent.Parent.Stats)
+local EnemyRegistry = require(script.Parent.Parent.Enemies.EnemyRegistry)
+local Projectiles = require(script.Parent.Projectiles)
+local OrbitBlades = require(script.Parent.OrbitBlades)
+
+type StatBlock = { [string]: number }
+
+export type Context = {
+	player: Player,
+	weaponId: string,
+	stats: StatBlock,
+	origin: Vector3,
+	target: Vector3?,
+	lookDirection: Vector3,
+	now: number,
+}
+
+local function rotateY(direction: Vector3, radians: number): Vector3
+	local cos, sin = math.cos(radians), math.sin(radians)
+	return Vector3.new(
+		direction.X * cos - direction.Z * sin,
+		direction.Y,
+		direction.X * sin + direction.Z * cos
+	)
+end
+
+local function rollCrit(player: Player, stats: StatBlock, now: number): (number, boolean)
+	local playerStats = Stats.get(player, now)
+	local chance = playerStats.CriticalChance or 0
+	if math.random() >= chance then
+		return stats.Damage, false
+	end
+	return stats.Damage * (playerStats.CriticalDamage or 1.5), true
+end
+
+-- Daño a todo lo que quede dentro de un radio, en el suelo. La comparte el pulso y
+-- cualquier otra fuente de área.
+local function damageArea(
+	position: Vector3,
+	radius: number,
+	damage: number,
+	isCrit: boolean,
+	effect: string
+): number
+	local hits = 0
+	for _, enemy in EnemyRegistry.queryRadius(position, radius) do
+		local dx = enemy.Position.X - position.X
+		local dz = enemy.Position.Z - position.Z
+		local reach = enemy.Definition.Size * 0.5 + radius
+		local distance = dx * dx + dz * dz
+		if distance <= reach * reach then
+			EnemyRegistry.damage(enemy, damage, isCrit)
+			hits += 1
+		end
+	end
+	Remotes.CombatEffect:FireAllClients(effect, position, radius)
+	return hits
+end
+
+-- Enemigo vivo más cercano alrededor de un punto, saltando los que ya han sido
+-- tocados. Cierra la tabla de la rejilla antes de devolver, porque el llamante
+-- vuelve a consultarla en el siguiente salto.
+local function nearestUntouched(
+	position: Vector3,
+	radius: number,
+	alreadyHit: { [number]: boolean }
+): EnemyRegistry.Enemy?
+	local best: EnemyRegistry.Enemy? = nil
+	local bestDistance = radius * radius
+	for _, enemy in EnemyRegistry.queryRadius(position, radius) do
+		if not alreadyHit[enemy.Id] then
+			local dx = enemy.Position.X - position.X
+			local dz = enemy.Position.Z - position.Z
+			local distance = dx * dx + dz * dz
+			if distance <= bestDistance then
+				bestDistance = distance
+				best = enemy
+			end
+		end
+	end
+	return best
+end
+
+-- Dispara uno o varios proyectiles hacia el objetivo. Con más de una bala se
+-- reparten en el cono; con una sola, van directa.
+local function fireProjectiles(context: Context)
+	if not context.target then
+		return
+	end
+
+	local aim = (context.target - context.origin)
+	if aim.Magnitude < 0.01 then
+		return
+	end
+	aim = aim.Unit
+
+	local muzzle = context.origin + Vector3.new(0, 1.4, 0)
+	local pellets = math.max(1, math.round(context.stats.Pellets or 1))
+	local spread = math.rad(context.stats.Spread or 0)
+	local speed = math.max(Config.Projectile.SpeedFloor, context.stats.ProjectileSpeed or 60)
+	local range = math.max(4, context.stats.Range or 40)
+	local lifetime = range / speed + 0.15
+
+	for index = 0, pellets - 1 do
+		local offset = 0
+		if pellets > 1 and spread > 0 then
+			offset = (index / (pellets - 1) - 0.5) * spread + (math.random() - 0.5) * spread * 0.25
+		end
+		local direction = rotateY(aim, offset)
+		local damage, isCrit = rollCrit(context.player, context.stats, context.now)
+		Projectiles.spawn(muzzle, direction, damage, speed, lifetime, context.player, isCrit)
+	end
+end
+
+-- Onda de daño a tu alrededor. El objetivo solo sirve para decidir si el pulso se
+-- dispara: el área es el radio, y se calcula en el suelo.
+local function fireNova(context: Context)
+	local damage, isCrit = rollCrit(context.player, context.stats, context.now)
+	local radius = math.max(2, context.stats.Radius or 8)
+	local center = Vector3.new(context.origin.X, Config.Arena.FloorY, context.origin.Z)
+	damageArea(center, radius, damage, isCrit, "nova")
+end
+
+-- Impacta al más cercano y salta a los siguientes, cada vez con menos daño. El
+-- salto se dibuja como un segmento entre el impacto anterior y el nuevo.
+local function fireChain(context: Context)
+	if not context.target then
+		return
+	end
+
+	local damage, isCrit = rollCrit(context.player, context.stats, context.now)
+	local jumps = math.max(1, math.round(context.stats.ChainCount or 2))
+	local jumpRange = math.max(4, context.stats.ChainRange or 18)
+	local falloff = math.clamp(context.stats.ChainFalloff or 0.85, 0.1, 1)
+
+	local from = Vector3.new(context.target.X, Config.Arena.FloorY + 1, context.target.Z)
+	local alreadyHit: { [number]: boolean } = {}
+	local current: EnemyRegistry.Enemy? = nearestUntouched(from, 1, alreadyHit)
+
+	for _ = 1, jumps do
+		if not current then
+			break
+		end
+		EnemyRegistry.damage(current, damage, isCrit)
+		alreadyHit[current.Id] = true
+
+		local position = Vector3.new(current.Position.X, Config.Arena.FloorY + 1, current.Position.Z)
+		Remotes.CombatEffect:FireAllClients("chain", from, jumpRange, position)
+
+		from = position
+		current = nearestUntouched(position, jumpRange, alreadyHit)
+		damage *= falloff
+	end
+end
+
+-- Lanza bombas en parábola hacia el objetivo. La detonación y el daño en área los
+-- lleva el propio proyectil, no esta función: aquí solo se elige hacia dónde.
+local function fireBomb(context: Context)
+	if not context.target then
+		return
+	end
+
+	local muzzle = context.origin + Vector3.new(0, 1.4, 0)
+	local aim = context.target - muzzle
+	if aim.Magnitude < 0.01 then
+		return
+	end
+	aim = aim.Unit
+
+	local blast = math.max(1, context.stats.BlastRadius or 8)
+	local arc = math.clamp(context.stats.Arc or 0.45, 0, 1.5)
+	local speed = math.max(Config.Projectile.SpeedFloor, context.stats.ProjectileSpeed or 44)
+	local range = math.max(6, context.stats.Range or 34)
+	local lifetime = range / speed + 0.35
+	local count = math.max(1, math.round(context.stats.ProjectileCount or 1))
+
+	for _ = 1, count do
+		-- La dispersión solo afecta a la horizontal: todas las bombas de una andanada
+		-- salen con la misma elevación y así la andanada sigue siendo legible.
+		local scatter = (math.random() - 0.5) * math.rad(9)
+		local direction = Vector3.new(
+			aim.X * math.cos(scatter) - aim.Z * math.sin(scatter),
+			aim.Y + arc,
+			aim.X * math.sin(scatter) + aim.Z * math.cos(scatter)
+		)
+		local damage, isCrit = rollCrit(context.player, context.stats, context.now)
+		Projectiles.spawnBomb(muzzle, direction, damage, speed, lifetime, context.player, isCrit, blast)
+	end
+end
+
+-- Las cuchillas no son un disparo: el comportamiento solo deja el juego de piezas
+-- sincronizado con las estadísticas actuales, y el movimiento y el corte por contacto
+-- los lleva OrbitBlades en su propio paso del bucle.
+local function sustainOrbit(context: Context)
+	local damage, isCrit = rollCrit(context.player, context.stats, context.now)
+	OrbitBlades.configure(context.player, context.stats, damage, isCrit)
+end
+
+return {
+	Projectile = fireProjectiles,
+	Nova = fireNova,
+	Chain = fireChain,
+	Bomb = fireBomb,
+	Orbit = sustainOrbit,
+}
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="50">
+          <Properties>
+            <string name="Name">WeaponRuntime</string>
+            <string name="Source"><![CDATA[--!strict
+-- Bucle de armas: un único recorrido por jugador y arma para decidir cuándo dispara.
+-- No sabe cómo se ejecuta el ataque (eso es WeaponBehaviors) ni qué rutas de daño
+-- existen (eso es EnemyRegistry).
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Registry = require(Shared:WaitForChild("Registry"))
+local StatMath = require(Shared:WaitForChild("StatMath"))
+local Types = require(Shared:WaitForChild("Types"))
+local Run = require(script.Parent.Parent.Run)
+local Stats = require(script.Parent.Parent.Stats)
+local PlayerAvatar = require(script.Parent.Parent.PlayerAvatar)
+local EnemyRegistry = require(script.Parent.Parent.Enemies.EnemyRegistry)
+local Behaviors = require(script.Parent.WeaponBehaviors)
+
+type StatBlock = Types.StatBlock
+type StatModifier = Types.StatModifier
+type Context = Behaviors.Context
+
+local cooldowns: { [Player]: { [string]: number } } = {}
+
+-- Los modificadores de una mejora de arma se vuelven a aplicar una vez por nivel
+-- comprado: subir Gun Damage tres veces da tres veces el bonus.
+local function upgradeModifiers(player: Player, weaponId: string): { StatModifier }
+	local modifiers: { StatModifier } = {}
+	local run = Run.get(player)
+	for upgradeId, count in run.upgradeLevels do
+		local definition = Registry.Upgrades[upgradeId]
+		if definition and definition.TargetId == weaponId then
+			for _ = 1, count do
+				for _, modifier in definition.Modifiers do
+					table.insert(modifiers, {
+						stat = modifier.stat,
+						kind = modifier.kind,
+						value = modifier.value,
+						source = upgradeId,
+					})
+				end
+			end
+		end
+	end
+	return modifiers
+end
+
+local WeaponRuntime = {}
+
+function WeaponRuntime.statsFor(player: Player, weaponId: string): StatBlock
+	local definition = Registry.Weapons[weaponId]
+	local run = Run.get(player)
+	local level = run.weaponLevels[weaponId] or 0
+	return StatMath.weapon(definition, level, upgradeModifiers(player, weaponId), Stats.get(player))
+end
+
+function WeaponRuntime.reset(player: Player)
+	cooldowns[player] = {}
+end
+
+local function fire(player: Player, weaponId: string, now: number)
+	local root = PlayerAvatar.root(player)
+	if not root then
+		return
+	end
+
+	local definition = Registry.Weapons[weaponId]
+	local behavior = Behaviors[definition.Behavior]
+	if not behavior then
+		return
+	end
+
+	local stats = WeaponRuntime.statsFor(player, weaponId)
+
+	-- Regla única de objetivo: un arma que lo necesita no dispara si no hay a nadie a
+	-- tiro, y un arma que no lo necesita (cuchillas orbitando) se ahorra la búsqueda.
+	local target: Vector3? = nil
+	if definition.RequiresTarget ~= false then
+		local enemy = EnemyRegistry.closest(root.Position, math.max(4, stats.Range or 40))
+		if not enemy then
+			return
+		end
+		target = enemy.Position + Vector3.new(0, 1, 0)
+	end
+
+	local context: Context = {
+		player = player,
+		weaponId = weaponId,
+		stats = stats,
+		origin = root.Position,
+		target = target,
+		lookDirection = root.CFrame.LookVector,
+		now = now,
+	}
+
+	behavior(context)
+end
+
+function WeaponRuntime.update(now: number)
+	for _, player in PlayerAvatar.alivePlayers() do
+		local perWeapon = cooldowns[player]
+		if not perWeapon then
+			perWeapon = {}
+			cooldowns[player] = perWeapon
+		end
+
+		local run = Run.get(player)
+		for weaponId, level in run.weaponLevels do
+			if level > 0 then
+				local readyAt = perWeapon[weaponId] or 0
+				if now >= readyAt then
+					local stats = WeaponRuntime.statsFor(player, weaponId)
+					local attackSpeed = math.max(0.1, stats.AttackSpeed or 1)
+					perWeapon[weaponId] = now + 1 / attackSpeed
+					fire(player, weaponId, now)
+				end
+			end
+		end
+	end
+end
+
+return WeaponRuntime
+]]></string>
+          </Properties>
+        </Item>
+      </Item>
+      <Item class="Folder" referent="51">
+        <Properties>
+          <string name="Name">Data</string>
+        </Properties>
+        <Item class="ModuleScript" referent="52">
+          <Properties>
+            <string name="Name">MetaData</string>
+            <string name="Source"><![CDATA[--!strict
+-- Progresión permanente del jugador (meta data). En la Fase 1 esto NO guarda nada:
+-- existe para que la frontera entre "lo que dura una partida" (Run) y "lo que se
+-- guarda entre partidas" (MetaData) quede marcada desde el principio, y para que
+-- añadir persistencia en la Fase 4 no toque los sistemas de gameplay.
+--
+-- Lo que haría falta cuando se active:
+--   - DataStoreService con UpdateAsync (nunca GetAsync + SetAsync).
+--   - Bloqueo de sesión para que dos servidores no escriban el mismo perfil.
+--   - Guardar en límites de vida (PlayerLeaving, BindToClose), no solo al salir.
+--   - Reconciliar contra la plantilla y validar números antes de escribir.
+local MetaData = {}
+
+export type Template = {
+	Version: number,
+	PlayerId: number,
+	Currency: number,
+	UnlockedCharacters: { string },
+	UnlockedWeapons: { string },
+	Upgrades: { [string]: number },
+	Statistics: {
+		Runs: number,
+		BestTime: number,
+		BestLevel: number,
+		TotalKills: number,
+	},
+}
+
+function MetaData.defaults(playerId: number): Template
+	return {
+		Version = 1,
+		PlayerId = playerId,
+		Currency = 0,
+		UnlockedCharacters = {},
+		UnlockedWeapons = {},
+		Upgrades = {},
+		Statistics = {
+			Runs = 0,
+			BestTime = 0,
+			BestLevel = 0,
+			TotalKills = 0,
+		},
+	}
+end
+
+return MetaData
+]]></string>
+          </Properties>
+        </Item>
+      </Item>
+      <Item class="Folder" referent="53">
+        <Properties>
+          <string name="Name">Enemies</string>
+        </Properties>
+        <Item class="ModuleScript" referent="54">
+          <Properties>
+            <string name="Name">EnemyAI</string>
+            <string name="Source"><![CDATA[--!strict
+-- Comportamiento de los enemigos. Un solo bucle para todos ellos, con un cursor
+-- giratorio que refresca objetivos por tandas: así el coste no crece de golpe con
+-- cientos de enemigos ni aparece un pico en un solo frame.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
+local Stats = require(script.Parent.Parent.Stats)
+local PlayerAvatar = require(script.Parent.Parent.PlayerAvatar)
+local EnemyRegistry = require(script.Parent.EnemyRegistry)
+
+type Enemy = EnemyRegistry.Enemy
+
+local SEPARATION_WEIGHT = 1.6
+local TARGETS_PER_SLICE = 8
+
+local cursor = 0
+local targets: { { player: Player, position: Vector3 } } = {}
+
+local function collectTargets()
+	table.clear(targets)
+	for _, player in PlayerAvatar.alivePlayers() do
+		local root = PlayerAvatar.root(player)
+		if root then
+			table.insert(targets, { player = player, position = root.Position })
+		end
+	end
+end
+
+local function nearestTarget(position: Vector3): Player?
+	local best: Player? = nil
+	local bestDistance = math.huge
+	for _, target in targets do
+		local dx = target.position.X - position.X
+		local dz = target.position.Z - position.Z
+		local distance = dx * dx + dz * dz
+		if distance < bestDistance then
+			bestDistance = distance
+			best = target.player
+		end
+	end
+	return best
+end
+
+local function isValidTarget(player: Player?): boolean
+	if not player then
+		return false
+	end
+	for _, target in targets do
+		if target.player == player then
+			return true
+		end
+	end
+	return false
+end
+
+local function refreshTargets()
+	local enemies = EnemyRegistry.all()
+	if #enemies == 0 then
+		cursor = 0
+		return
+	end
+	local slice = math.min(#enemies, TARGETS_PER_SLICE)
+	for _ = 1, slice do
+		cursor = cursor % #enemies + 1
+		local enemy = enemies[cursor]
+		enemy.Target = nearestTarget(enemy.Position)
+	end
+end
+
+local function moveEnemies(dt: number)
+	local enemies = EnemyRegistry.all()
+	local half = Config.Arena.HalfExtent
+	local floorY = Config.Arena.FloorY
+
+	for index = #enemies, 1, -1 do
+		local enemy = enemies[index]
+		local target = enemy.Target
+		if not isValidTarget(target) then
+			target = nil
+		end
+
+		local steer = Vector3.zero
+		if target then
+			for _, entry in targets do
+				if entry.player == target then
+					local dx = entry.position.X - enemy.Position.X
+					local dz = entry.position.Z - enemy.Position.Z
+					local distance = math.sqrt(dx * dx + dz * dz)
+					if distance > 0.01 then
+						steer = Vector3.new(dx / distance, 0, dz / distance)
+					end
+					break
+				end
+			end
+		end
+
+		-- Separación: evita que la horda se apile en un solo punto y que el jugador
+		-- solo pueda golpear a un enemigo a la vez.
+		local separation = Vector3.zero
+		local size = enemy.Definition.Size
+		for _, other in EnemyRegistry.queryRadius(enemy.Position, size * 2) do
+			if other ~= enemy then
+				local dx = enemy.Position.X - other.Position.X
+				local dz = enemy.Position.Z - other.Position.Z
+				local distance = math.sqrt(dx * dx + dz * dz)
+				local minimum = size * 0.5 + other.Definition.Size * 0.5
+				if distance < minimum and distance > 0.001 then
+					local push = (minimum - distance) / minimum
+					separation += Vector3.new(dx / distance, 0, dz / distance) * push
+				end
+			end
+		end
+
+		local direction = steer + separation * SEPARATION_WEIGHT
+		local magnitude = direction.Magnitude
+		if magnitude > 1 then
+			direction /= magnitude
+		end
+
+		local next = enemy.Position + direction * enemy.Speed * dt
+		next = Vector3.new(math.clamp(next.X, -half, half), floorY, math.clamp(next.Z, -half, half))
+
+		enemy.Position = next
+		-- Sin dirección (recién spawneado y sin vecinos) no hay hacia dónde mirar:
+		-- CFrame.lookAt exige dos puntos distintos, así que en ese frame no se rota.
+		if direction.Magnitude > 0.001 then
+			enemy.Root.CFrame =
+				CFrame.lookAt(next + Vector3.new(0, 1, 0), next + direction + Vector3.new(0, 1, 0))
+		end
+		if enemy.IsAsset then
+			-- El asset no tiene un "Body" que mover; el modelo completo se coloca por su
+			-- PrimaryPart. El Root sirve solo para la rejilla espacial.
+			enemy.Model:PivotTo(CFrame.new(next + Vector3.new(0, size * 0.5, 0)))
+		else
+			enemy.Body.CFrame = CFrame.new(next + Vector3.new(0, size * 0.5, 0))
+		end
+	end
+end
+
+local function attackPlayers(now: number)
+	local enemies = EnemyRegistry.all()
+	for _, enemy in enemies do
+		local target = enemy.Target
+		if target and now >= enemy.NextAttackAt then
+			for _, entry in targets do
+				if entry.player == target then
+					local dx = entry.position.X - enemy.Position.X
+					local dz = entry.position.Z - enemy.Position.Z
+					if dx * dx + dz * dz <= enemy.AttackRange * enemy.AttackRange then
+						local stats = Stats.get(target, now)
+						local applied = PlayerAvatar.damage(target, stats, enemy.Damage)
+						enemy.NextAttackAt = now + enemy.AttackInterval
+						if applied > 0 then
+							Remotes.CombatEffect:FireAllClients("playerHurt", entry.position, 1)
+						end
+					end
+					break
+				end
+			end
+		end
+	end
+end
+
+local EnemyAI = {}
+
+function EnemyAI.update(dt: number, now: number)
+	collectTargets()
+	if #targets == 0 then
+		return
+	end
+	refreshTargets()
+	moveEnemies(dt)
+	attackPlayers(now)
+end
+
+return EnemyAI
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="55">
+          <Properties>
+            <string name="Name">EnemyRegistry</string>
+            <string name="Source"><![CDATA[--!strict
+-- Dueño de los enemigos: instanciación pooled, vida, muerte y recompensa.
+-- No decide comportamiento (eso es EnemyAI) ni dificultad (eso es Difficulty).
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Registry = require(Shared:WaitForChild("Registry"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
+local Types = require(Shared:WaitForChild("Types"))
+local Pool = require(script.Parent.Parent.Utility.Pool)
+local Grid = require(script.Parent.SpatialGrid)
+local XPPickups = require(script.Parent.Parent.Pickups.XPPickups)
+local InsertService = game:GetService("InsertService")
+
+type EnemyDefinition = Types.EnemyDefinition
+
+export type Enemy = {
+	Id: number,
+	Slot: number,
+	Definition: EnemyDefinition,
+	Model: Model,
+	Root: BasePart,
+	Body: BasePart,
+	Health: number,
+	MaxHealth: number,
+	Speed: number,
+	Damage: number,
+	AttackInterval: number,
+	AttackRange: number,
+	Position: Vector3,
+	NextAttackAt: number,
+	-- Instante en el que este enemigo vuelve a ser vulnerable a contacto. Lo usan las
+	-- armas que cortan por contacto (cuchillas orbitando) para no golpear cada frame.
+	HitLockUntil: number,
+	Alive: boolean,
+	-- El visual de este enemigo no es la esfera de reserva, sino un modelo cargado de
+	-- Creator Store. IsAsset reemplaza al Body en la colocación física.
+	IsAsset: boolean,
+	Target: Player?,
+	Lease: any,
+}
+
+export type Scaling = {
+	health: number,
+	speed: number,
+}
+
+local container: Folder = nil
+local pool: Pool.Pooled = nil
+local assetPools: { [number]: Pool.Pooled } = {}
+local grid: Grid.Grid = nil
+local enemies: { Enemy } = {}
+local nextId = 0
+
+local function buildTemplate(): Model
+	local model = Instance.new("Model")
+	model.Name = "Enemy"
+
+	local root = Instance.new("Part")
+	root.Name = "Root"
+	root.Size = Vector3.new(2, 2, 2)
+	root.Transparency = 1
+	root.Anchored = true
+	root.CanCollide = false
+	root.CanQuery = false
+	root.CanTouch = false
+	root.Massless = true
+	root.Parent = model
+
+	local body = Instance.new("Part")
+	body.Name = "Body"
+	body.Shape = Enum.PartType.Ball
+	body.Anchored = true
+	body.CanCollide = false
+	body.CanQuery = false
+	body.CanTouch = false
+	body.Parent = model
+
+	model.PrimaryPart = root
+	return model
+end
+
+-- Prepara un modelo del Store como template del pool: anclado, sin colisiones y
+-- con un PrimaryPart uniforme. Si no se puede cargar, devuelve la esfera de reserva.
+local function buildAssetTemplate(assetId: number): Model
+	local ok, asset = pcall(function()
+		return InsertService:LoadAsset(assetId)
+	end)
+	if not ok or not asset then
+		warn(`[EnemyRegistry] no se pudo cargar el asset {assetId}: {asset}`)
+		return buildTemplate()
+	end
+
+	local source = asset:FindFirstChildWhichIsA("Model") or asset
+	local model = source:Clone()
+	model.Name = "Enemy"
+	for _, child in model:GetDescendants() do
+		if child:IsA("BasePart") then
+			child.Anchored = true
+			child.CanCollide = false
+			child.CanQuery = false
+			child.CanTouch = false
+			child.CastShadow = false
+			child.Massless = true
+		elseif child:IsA("Script") or child:IsA("LocalScript") then
+			child:Destroy()
+		end
+	end
+
+	local root = model:FindFirstChild("Root") or model:FindFirstChild("HumanoidRootPart")
+	if not root then
+		root = Instance.new("Part")
+		root.Size = Vector3.new(2, 2, 2)
+		root.Transparency = 1
+		root.Anchored = true
+		root.CanCollide = false
+		root.CanQuery = false
+		root.CanTouch = false
+		root.Massless = true
+	end
+	root.Name = "Root"
+	(root :: Instance).Parent = model
+	model.PrimaryPart = root :: BasePart
+	return model
+end
+
+local EnemyRegistry = {}
+
+function EnemyRegistry.init()
+	if container then
+		return
+	end
+	container = Instance.new("Folder")
+	container.Name = "Enemies"
+	container.Parent = workspace
+	pool = Pool.new(buildTemplate(), 48)
+	grid = Grid.new(8)
+end
+
+-- Versión de pool para los enemigos que llevan asset: se crea perezoso y sigue
+-- existiendo todo lo que dure la sesión.
+local function poolFor(definitionId: string): Pool.Pooled
+	local visuals = Config.EnemyVisuals[definitionId]
+	if not visuals or not visuals.AssetId then
+		return pool
+	end
+	local cached = assetPools[visuals.AssetId]
+	if cached then
+		return cached
+	end
+	cached = Pool.new(buildAssetTemplate(visuals.AssetId), 12)
+	assetPools[visuals.AssetId] = cached
+	return cached
+end
+
+function EnemyRegistry.count(): number
+	return #enemies
+end
+
+function EnemyRegistry.all(): { Enemy }
+	return enemies
+end
+
+-- El índice espacial se reconstruye una vez por frame, después de que la IA haya
+-- movido a los enemigos.
+function EnemyRegistry.rebuildGrid()
+	grid:clear()
+	for _, enemy in enemies do
+		grid:insert(enemy, enemy.Position)
+	end
+end
+
+function EnemyRegistry.queryRadius(position: Vector3, radius: number): { Enemy }
+	return grid:queryRadius(position, radius)
+end
+
+-- Enemigo vivo más cercano dentro del rango. Consume el scratch del grid, así que
+-- el resultado no debe guardarse.
+function EnemyRegistry.closest(position: Vector3, maxDistance: number): Enemy?
+	local best: Enemy? = nil
+	local bestDistance = maxDistance * maxDistance
+	for _, enemy in grid:queryRadius(position, maxDistance) do
+		local dx = enemy.Position.X - position.X
+		local dz = enemy.Position.Z - position.Z
+		local distance = dx * dx + dz * dz
+		if distance <= bestDistance then
+			bestDistance = distance
+			best = enemy
+		end
+	end
+	return best
+end
+
+function EnemyRegistry.spawn(definitionId: string, position: Vector3, scaling: Scaling): Enemy?
+	local definition = Registry.Enemies[definitionId]
+	if not definition or not pool then
+		return nil
+	end
+
+	local half = Config.Arena.HalfExtent
+	local clamped = Vector3.new(
+		math.clamp(position.X, -half, half),
+		Config.Arena.FloorY,
+		math.clamp(position.Z, -half, half)
+	)
+
+	local visuals = Config.EnemyVisuals[definitionId] or {}
+	local size = definition.Size
+	local health = definition.Health * scaling.health
+	local useAsset = visuals.AssetId ~= nil
+	local assetPool = poolFor(definitionId)
+
+	local acquired, lease = assetPool:Get(function(instance)
+		local model = instance :: Model
+		model.Name = `Enemy_{definitionId}`
+		if useAsset then
+			for _, part in model:GetDescendants() do
+				if part:IsA("BasePart") then
+					part.Anchored = true
+					part.CanCollide = false
+					part.CanQuery = false
+					part.CanTouch = false
+					part.Massless = true
+				end
+			end
+			model:PivotTo(CFrame.new(clamped + Vector3.new(0, visuals.OffsetY or size, 0)))
+		else
+			local body = model.Body :: BasePart
+			body.Size = Vector3.new(size, size, size)
+			body.Color = visuals.Color or Color3.fromRGB(200, 200, 200)
+			body.CFrame = CFrame.new(clamped + Vector3.new(0, visuals.OffsetY or size * 0.5, 0))
+		end
+		if not useAsset then
+			local root = model.Root :: BasePart
+			root.Size = Vector3.new(2, 2, 2)
+			root.CFrame = CFrame.new(clamped + Vector3.new(0, 1, 0))
+		end
+		model.Parent = container
+	end)
+
+	local model = acquired :: Model
+	local root = model.Root :: BasePart
+	local body: BasePart = if useAsset then model.PrimaryPart else model.Body :: BasePart
+
+	nextId += 1
+	local enemy: Enemy = {
+		Id = nextId,
+		Slot = 0,
+		Definition = definition,
+		Model = model,
+		Root = root,
+		Body = body,
+		Health = health,
+		MaxHealth = health,
+		Speed = definition.Speed * scaling.speed,
+		Damage = definition.Damage,
+		AttackInterval = definition.AttackInterval,
+		AttackRange = definition.AttackRange,
+		Position = clamped,
+		NextAttackAt = 0,
+		HitLockUntil = 0,
+		Alive = true,
+		IsAsset = useAsset,
+		Target = nil,
+		Lease = lease,
+	}
+
+	table.insert(enemies, enemy)
+	enemy.Slot = #enemies
+	return enemy
+end
+
+-- Único punto por el que un enemigo pierde vida. La muerte suelta la recompensa y
+-- devuelve el modelo al pool.
+function EnemyRegistry.damage(enemy: Enemy, amount: number, isCrit: boolean?): boolean
+	if not enemy.Alive or amount <= 0 then
+		return false
+	end
+
+	enemy.Health -= amount
+	local center = enemy.Position + Vector3.new(0, 1, 0)
+	Remotes.CombatEffect:FireAllClients("hit", center, if isCrit then 2 else 1)
+
+	if enemy.Health > 0 then
+		return false
+	end
+
+	enemy.Alive = false
+	Remotes.CombatEffect:FireAllClients("death", center, 1)
+
+	local slot = enemy.Slot
+	local last = enemies[#enemies]
+	enemies[slot] = last
+	last.Slot = slot
+	table.remove(enemies)
+	if enemy.IsAsset then
+		local assetPool = assetPools[Config.EnemyVisuals[enemy.Definition.Id].AssetId]
+		if assetPool then
+			assetPool:Release(enemy.Model, enemy.Lease)
+		else
+			pool:Release(enemy.Model, enemy.Lease)
+		end
+	else
+		pool:Release(enemy.Model, enemy.Lease)
+	end
+	XPPickups.spawn(enemy.Position, enemy.Definition.XPReward)
+	return true
+end
+
+function EnemyRegistry.clearAll()
+	for index = #enemies, 1, -1 do
+		local enemy = enemies[index]
+		enemy.Alive = false
+		if enemy.IsAsset then
+			local assetPool = assetPools[Config.EnemyVisuals[enemy.Definition.Id].AssetId]
+			if assetPool then
+				assetPool:Release(enemy.Model, enemy.Lease)
+			else
+				pool:Release(enemy.Model, enemy.Lease)
+			end
+		else
+			pool:Release(enemy.Model, enemy.Lease)
+		end
+		table.remove(enemies, index)
+	end
+end
+
+return EnemyRegistry
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="56">
+          <Properties>
+            <string name="Name">SpatialGrid</string>
+            <string name="Source"><![CDATA[--!strict
+-- Hash espacial por celdas. Evita el O(n^2) de "cada enemigo contra cada enemigo"
+-- en separación, impactos y selección de objetivo. Solo guarda entradas: la
+-- posición vive en el propio enemigo y se escribe una vez por frame.
+local Grid = {}
+Grid.__index = Grid
+
+export type Grid = typeof(setmetatable(
+	{} :: {
+		cellSize: number,
+		buckets: { [string]: { any } },
+		scratch: { any },
+	},
+	Grid
+))
+
+function Grid.new(cellSize: number): Grid
+	return setmetatable({ cellSize = cellSize, buckets = {}, scratch = {} }, Grid)
+end
+
+function Grid:clear()
+	table.clear(self.buckets)
+end
+
+-- Clave numérica de celda: una multiplicación en vez de una cadena por celda evita
+-- reservar memoria en el hot path. Solo es inyectiva si el rango de celdas cabe en
+-- 4096 columnas, cosa que cumple la arena; si el mapa creciera habría que revisar
+-- el factor.
+local function cellIndex(grid: Grid, position: Vector3): number
+	return math.floor(position.X / grid.cellSize) + math.floor(position.Z / grid.cellSize) * 4096
+end
+
+function Grid:insert(entry: any, position: Vector3)
+	local key = cellIndex(self, position)
+	local bucket = self.buckets[key]
+	if not bucket then
+		bucket = {}
+		self.buckets[key] = bucket
+	end
+	table.insert(bucket, entry)
+end
+
+-- Recorre solo las celdas que tocan el círculo de consulta. Devuelve la tabla
+-- interna para no asignar en el hot path; el llamante no debe conservarla.
+function Grid:queryRadius(position: Vector3, radius: number): { any }
+	local results = self.scratch
+	table.clear(results)
+
+	local size = self.cellSize
+	local minX = math.floor((position.X - radius) / size)
+	local maxX = math.floor((position.X + radius) / size)
+	local minZ = math.floor((position.Z - radius) / size)
+	local maxZ = math.floor((position.Z + radius) / size)
+
+	for cx = minX, maxX do
+		for cz = minZ, maxZ do
+			local bucket = self.buckets[cx + cz * 4096]
+			if bucket then
+				for _, entry in bucket do
+					table.insert(results, entry)
+				end
+			end
+		end
+	end
+
+	return results
+end
+
+return Grid
+]]></string>
+          </Properties>
+        </Item>
+      </Item>
+      <Item class="ModuleScript" referent="57">
+        <Properties>
+          <string name="Name">GameLoop</string>
+          <string name="Source"><![CDATA[--!strict
+-- Un solo Heartbeat para todo el servidor, con el orden explícito de los sistemas.
+-- Así nadie más abre una conexión por frame y el coste por enemigo está medible.
+local RunService = game:GetService("RunService")
+local Match = require(script.Parent.Match)
+local EnemyRegistry = require(script.Parent.Enemies.EnemyRegistry)
+local EnemyAI = require(script.Parent.Enemies.EnemyAI)
+local EnemySpawner = require(script.Parent.Spawning.EnemySpawner)
+local Projectiles = require(script.Parent.Combat.Projectiles)
+local OrbitBlades = require(script.Parent.Combat.OrbitBlades)
+local WeaponRuntime = require(script.Parent.Combat.WeaponRuntime)
+local XPPickups = require(script.Parent.Pickups.XPPickups)
+
+-- Tras un tirón largo, un dt enorme teletransportaría enemigos y proyectiles.
+local MAX_STEP = 0.1
+
+local connection: RBXScriptConnection? = nil
+
+local GameLoop = {}
+
+function GameLoop.start()
+	if connection then
+		return
+	end
+
+	connection = RunService.Heartbeat:Connect(function(rawDt)
+		local dt = math.min(rawDt, MAX_STEP)
+		local now = os.clock()
+
+		-- El reloj de partida va primero: si el estado cambia, el resto de sistemas ya
+		-- ven el estado nuevo en este mismo frame.
+		Match.update(dt, now)
+
+		if not Match.isSimulating() then
+			return
+		end
+
+		EnemyAI.update(dt, now)
+		EnemyRegistry.rebuildGrid()
+		Projectiles.update(dt)
+		XPPickups.update(dt)
+		-- Las cuchillas se mueven y cortan despues de mover a los enemigos, para que el
+		-- corte use la posicion de este frame y no la del anterior.
+		OrbitBlades.update(dt, now)
+		WeaponRuntime.update(now)
+		EnemySpawner.update(now, Match.getElapsed())
+	end)
+end
+
+function GameLoop.stop()
+	if connection then
+		connection:Disconnect()
+		connection = nil
+	end
+end
+
+return GameLoop
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="Script" referent="58">
+        <Properties>
+          <string name="Name">Main</string>
+          <token name="RunContext">0</token>
+          <string name="Source"><![CDATA[--!strict
+-- Arranque del servidor. Aquí se cablean las piezas en un orden explícito y se
+-- instala la una y única conexión de red entrante: nada más en el servidor escucha
+-- peticiones del cliente.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Remotes = require(Shared:WaitForChild("Remotes"))
+local Stats = require(script.Parent.Stats)
+local PlayerAvatar = require(script.Parent.PlayerAvatar)
+local Match = require(script.Parent.Match)
+local GameLoop = require(script.Parent.GameLoop)
+local EnemyRegistry = require(script.Parent.Enemies.EnemyRegistry)
+local XPPickups = require(script.Parent.Pickups.XPPickups)
+local Projectiles = require(script.Parent.Combat.Projectiles)
+local OrbitBlades = require(script.Parent.Combat.OrbitBlades)
+
+-- Pools y carpetas de mundo antes de que nada pueda instanciar.
+EnemyRegistry.init()
+XPPickups.init()
+Projectiles.init()
+OrbitBlades.init()
+
+-- El propietario de la partida decide qué significa recoger XP. Inyectarlo aquí
+-- mantiene la dirección de dependencias en un solo sentido.
+XPPickups.onCollect(Match.grantXp)
+
+Remotes.RequestUpgrade.OnServerEvent:Connect(function(player: Player, upgradeId: unknown)
+	local ok, reason = Match.handleUpgradeRequest(player, upgradeId)
+	if not ok then
+		warn(`[Server] elección rechazada de {player.Name}: {reason}`)
+	end
+end)
+
+-- El servidor no emite nada por evento hasta que el cliente confirma que ya tiene
+-- sus listeners registrados: asi una carta de nivel que llega durante el arranque no
+-- se pierde.
+Remotes.ClientReady.OnServerEvent:Connect(function(player: Player)
+	Match.sendTo(player)
+end)
+
+local function onCharacterAdded(player: Player, character: Model)
+	local humanoid = character:WaitForChild("Humanoid", 10) :: Humanoid?
+	if not humanoid then
+		return
+	end
+	PlayerAvatar.applyStats(player, Stats.get(player))
+
+	humanoid.Died:Once(function()
+		Match.onPlayerDied(player)
+	end)
+end
+
+local function onPlayerAdded(player: Player)
+	player.CharacterAdded:Connect(function(character)
+		onCharacterAdded(player, character)
+	end)
+	if player.Character then
+		onCharacterAdded(player, player.Character)
+	end
+
+	-- El vertical slice no tiene lobby jugable: en cuanto hay alguien, arranca la
+	-- partida. El estado "Lobby" ya existe para que la Fase 4 añada la sala sin tocar
+	-- los sistemas de juego.
+	if Match.getState() == "Lobby" then
+		Match.startRun(os.clock())
+	end
+end
+
+-- La partida es dueña del ciclo de vida del personaje: con el auto-respawn de Roblox
+-- apagado, un jugador que cae vuelve a entrar por Match y no por el motor. Es una
+-- propiedad del servicio Players, no del jugador, asi que se fija una sola vez aqui.
+Players.CharacterAutoLoads = false
+
+Players.PlayerAdded:Connect(onPlayerAdded)
+Players.PlayerRemoving:Connect(function(player)
+	Match.releasePlayer(player)
+end)
+
+GameLoop.start()
+
+-- Cubre a quien ya estaba conectado antes de que este script cargara.
+for _, player in Players:GetPlayers() do
+	onPlayerAdded(player)
+end
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="59">
+        <Properties>
+          <string name="Name">Match</string>
+          <string name="Source"><![CDATA[--!strict
+-- Propietario del flujo de una partida: estado, reloj, subida de nivel y limpieza.
+--
+-- Es el módulo de más arriba del servidor. Ningún otro cambia el estado de la
+-- partida: el bucle pregunta si se está simulando, el spawner pregunta por el tiempo
+-- transcurrido y el HUD recibe el snapshot desde aquí.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Registry = require(Shared:WaitForChild("Registry"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
+local Types = require(Shared:WaitForChild("Types"))
+local Run = require(script.Parent.Run)
+local Stats = require(script.Parent.Stats)
+local PlayerAvatar = require(script.Parent.PlayerAvatar)
+local EnemyRegistry = require(script.Parent.Enemies.EnemyRegistry)
+local EnemySpawner = require(script.Parent.Spawning.EnemySpawner)
+local WeaponRuntime = require(script.Parent.Combat.WeaponRuntime)
+local Projectiles = require(script.Parent.Combat.Projectiles)
+local OrbitBlades = require(script.Parent.Combat.OrbitBlades)
+local XPPickups = require(script.Parent.Pickups.XPPickups)
+local LevelUp = require(script.Parent.Progression.LevelUp)
+
+type MatchState = Types.MatchState
+type RunSnapshot = Types.RunSnapshot
+
+local Match = {}
+
+local OFFER_COUNT = 3
+local SNAPSHOT_INTERVAL = 0.2
+local CHOICE_COOLDOWN = 0.2
+
+local state: MatchState = "Lobby"
+local elapsed = 0
+local snapshotClock = 0
+local levelUpClock = 0
+local resultsEndsAt = 0
+local lastChoiceAt: { [Player]: number } = {}
+
+-- "Event", "Boss" y "Victory" están reservados: añadir un evento de partida no
+-- requiere tocar el HUD ni los clientes.
+local SIMULATED: { [MatchState]: boolean } = {
+	Lobby = false,
+	Starting = false,
+	Playing = true,
+	LevelUp = false,
+	Event = true,
+	Boss = true,
+	Victory = false,
+	Defeat = false,
+}
+
+function Match.getState(): MatchState
+	return state
+end
+
+function Match.getElapsed(): number
+	return elapsed
+end
+
+function Match.isSimulating(): boolean
+	return SIMULATED[state] == true
+end
+
+function Match.setState(next: MatchState)
+	if state == next then
+		return
+	end
+	state = next
+	Match.broadcast()
+end
+
+local function clearWorld()
+	EnemyRegistry.clearAll()
+	Projectiles.clearAll()
+	OrbitBlades.clearAll()
+	XPPickups.clearAll()
+end
+
+local function snapshotFor(player: Player, now: number): RunSnapshot
+	local run = Run.get(player)
+	local stats = Stats.get(player, now)
+	local humanoid = PlayerAvatar.humanoid(player)
+
+	local weapons: { Types.WeaponView } = {}
+	for weaponId, level in run.weaponLevels do
+		local definition = Registry.Weapons[weaponId]
+		if definition then
+			table.insert(weapons, {
+				Id = weaponId,
+				Name = definition.Name,
+				Icon = definition.Icon,
+				Level = level,
+				MaxLevel = definition.MaxLevel,
+			})
+		end
+	end
+	table.sort(weapons, function(a, b)
+		return a.Id < b.Id
+	end)
+
+	local upgradeIds: { string } = {}
+	for upgradeId, level in run.upgradeLevels do
+		if level > 0 then
+			table.insert(upgradeIds, upgradeId)
+		end
+	end
+	table.sort(upgradeIds)
+
+	local passives: { Types.PassiveView } = {}
+	for _, upgradeId in upgradeIds do
+		local definition = Registry.Upgrades[upgradeId]
+		if definition then
+			table.insert(passives, {
+				Id = upgradeId,
+				Name = definition.Name,
+				Icon = definition.Icon,
+				Level = run.upgradeLevels[upgradeId],
+				MaxLevel = definition.MaxLevel,
+			})
+		end
+	end
+
+	return {
+		State = state,
+		Elapsed = elapsed,
+		Health = if humanoid then humanoid.Health else 0,
+		MaxHealth = stats.MaxHealth or 100,
+		Level = run.level,
+		XP = run.xp,
+		XPToNext = Run.xpToNext(player),
+		Weapons = weapons,
+		Passives = passives,
+		Buffs = Stats.buffTimers(player, now),
+		MoveSpeed = stats.MoveSpeed or 16,
+		PickupRadius = stats.PickupRadius or 0,
+	}
+end
+
+function Match.pushSnapshot(player: Player)
+	Remotes.RunSnapshot:FireClient(player, snapshotFor(player, os.clock()))
+end
+
+-- Único canal de estado: cada cliente recibe su estado y, si tiene una elección
+-- pendiente, sus propias cartas.
+function Match.sendTo(player: Player)
+	local now = os.clock()
+	Remotes.MatchStateChanged:FireClient(player, state, elapsed, LevelUp.pendingFor(player))
+	Remotes.RunSnapshot:FireClient(player, snapshotFor(player, now))
+end
+
+function Match.broadcast()
+	for _, player in Players:GetPlayers() do
+		Match.sendTo(player)
+	end
+end
+
+function Match.startRun(now: number)
+	clearWorld()
+	elapsed = 0
+	snapshotClock = 0
+	levelUpClock = 0
+	resultsEndsAt = 0
+
+	for _, player in Players:GetPlayers() do
+		Run.reset(player)
+		Stats.clear(player)
+		LevelUp.clear(player)
+		WeaponRuntime.reset(player)
+		lastChoiceAt[player] = 0
+		-- Base stats del jugador recien llegado. Puede no tener avatar todavia: el
+		-- personaje se carga unas lineas mas abajo.
+		PlayerAvatar.applyStats(player, Stats.get(player, now))
+
+		task.spawn(function()
+			local ok, problem = pcall(player.LoadCharacterAsync, player)
+			if not ok then
+				warn(`[Match] no se pudo cargar el personaje de {player.Name}: {problem}`)
+			end
+		end)
+	end
+
+	EnemySpawner.reset(now)
+	state = "Playing"
+	Match.broadcast()
+end
+
+function Match.stopRun(final: MatchState, now: number)
+	clearWorld()
+	if final == "Defeat" or final == "Victory" then
+		resultsEndsAt = now + Config.Run.DefeatDuration
+	end
+	Match.setState(final)
+end
+
+function Match.beginLevelUp()
+	for _, player in Players:GetPlayers() do
+		if LevelUp.queuedLevels(player) > 0 then
+			LevelUp.begin(player, OFFER_COUNT)
+		end
+	end
+	levelUpClock = 0
+	Match.setState("LevelUp")
+end
+
+function Match.grantXp(player: Player, amount: number)
+	if not Match.isSimulating() then
+		return
+	end
+	-- XPModifier vive en las estadísticas del jugador (base 1) para que cualquier
+	-- pasiva futura pueda tocarlo sin que este sistema conozca la mejora.
+	local modifier = Stats.get(player).XPModifier or 1
+	local gained = Run.addXp(player, amount * modifier)
+	if gained <= 0 then
+		return
+	end
+
+	LevelUp.awardLevels(player, gained)
+	Match.pushSnapshot(player)
+	if state == "Playing" then
+		Match.beginLevelUp()
+	end
+end
+
+local function hasPendingChoices(): boolean
+	for _, player in Players:GetPlayers() do
+		if LevelUp.queuedLevels(player) > 0 then
+			return true
+		end
+	end
+	return false
+end
+
+-- Petición del cliente. El servidor no confía en nada: la carta tiene que estar en
+-- el conjunto pendiente y cada pendiente se consume una sola vez.
+function Match.handleUpgradeRequest(player: Player, upgradeId: unknown): (boolean, string?)
+	if state ~= "LevelUp" then
+		return false, "run not paused"
+	end
+	if typeof(upgradeId) ~= "string" or #upgradeId > 40 then
+		return false, "bad upgrade id"
+	end
+
+	local now = os.clock()
+	if now - (lastChoiceAt[player] or 0) < CHOICE_COOLDOWN then
+		return false, "too fast"
+	end
+	lastChoiceAt[player] = now
+
+	if not LevelUp.consume(player, upgradeId :: string) then
+		return false, "upgrade not offered"
+	end
+
+	Remotes.UpgradeChosen:FireClient(player, upgradeId)
+	PlayerAvatar.applyStats(player, Stats.get(player, now))
+	Match.pushSnapshot(player)
+
+	-- Una sola gota puede dar varios niveles: se encadena otra carta sin volver a
+	-- congelar el reloj.
+	if LevelUp.queuedLevels(player) > 0 then
+		LevelUp.begin(player, OFFER_COUNT)
+		Match.broadcast()
+		return true, nil
+	end
+
+	if not hasPendingChoices() then
+		levelUpClock = 0
+		Match.setState("Playing")
+		EnemySpawner.reset(now)
+	end
+	return true, nil
+end
+
+function Match.onPlayerDied(player: Player)
+	local run = Run.get(player)
+	run.alive = false
+	if state == "Victory" or state == "Defeat" or state == "Lobby" then
+		return
+	end
+	if #PlayerAvatar.alivePlayers() > 0 then
+		return
+	end
+	Match.stopRun("Defeat", os.clock())
+end
+
+function Match.releasePlayer(player: Player)
+	lastChoiceAt[player] = nil
+	Run.release(player)
+	Stats.clear(player)
+	LevelUp.clear(player)
+	WeaponRuntime.reset(player)
+	OrbitBlades.reset(player)
+end
+
+function Match.update(dt: number, now: number)
+	if state == "Playing" then
+		elapsed += dt
+		snapshotClock += dt
+		if snapshotClock >= SNAPSHOT_INTERVAL then
+			snapshotClock = 0
+			for _, player in Players:GetPlayers() do
+				Match.pushSnapshot(player)
+			end
+		end
+		-- Objetivo de la Fase 1. Cuando llegue el jefe, este reloj deja de decidir el
+		-- final y pasa a lanzar el evento: el resto del final de partida ya existe.
+		if elapsed >= Config.Run.TargetDuration then
+			Match.stopRun("Victory", now)
+		end
+		return
+	end
+
+	if state == "LevelUp" then
+		levelUpClock += dt
+		if levelUpClock >= Config.Run.LevelUpTimeout then
+			-- Autoelección: una partida nunca queda bloqueada por un jugador ausente.
+			for _, player in Players:GetPlayers() do
+				local offers = LevelUp.pendingFor(player)
+				if offers and LevelUp.queuedLevels(player) > 0 then
+					Match.handleUpgradeRequest(player, offers[1].Id)
+				end
+			end
+			if state == "LevelUp" and not hasPendingChoices() then
+				Match.setState("Playing")
+			end
+		end
+		return
+	end
+
+	if (state == "Defeat" or state == "Victory") and now >= resultsEndsAt then
+		if #Players:GetPlayers() > 0 then
+			Match.startRun(now)
+		else
+			state = "Lobby"
+		end
+	end
+end
+
+return Match
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="Folder" referent="60">
+        <Properties>
+          <string name="Name">Pickups</string>
+        </Properties>
+        <Item class="ModuleScript" referent="61">
+          <Properties>
+            <string name="Name">XPPickups</string>
+            <string name="Source"><![CDATA[--!strict
+-- Gotas de experiencia. Es un sistema de recogidas genérico: decide magnetismo,
+-- atracción y recogida, pero no qué hace el juego con la recompensa; eso lo inyecta
+-- el propietario de la partida con onCollect, para que este módulo no dependa del
+-- estado de partida y se pueda reutilizar para otro tipo de pickup.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Pool = require(script.Parent.Parent.Utility.Pool)
+local Stats = require(script.Parent.Parent.Stats)
+local PlayerAvatar = require(script.Parent.Parent.PlayerAvatar)
+
+local COLLECT_RADIUS = 2.2
+local MIN_PULL = 26
+local MAX_PULL = 95
+
+type Pickup = {
+	Part: BasePart,
+	Position: Vector3,
+	Value: number,
+	Slot: number,
+	Lease: any,
+}
+
+-- Lista decentes candidatos reutilizada por frame: recorrer Players y buscar la raíz
+-- por cada gota multiplicaría el coste por el número de gotas.
+type Candidate = {
+	player: Player,
+	root: BasePart,
+	radius: number,
+}
+
+local pickups: { Pickup } = {}
+local candidates: { Candidate } = {}
+local candidateCount = 0
+local container: Folder = nil
+local pool: Pool.Pooled = nil
+local collectHandler: ((Player, number) -> ())? = nil
+
+local function buildTemplate(): Part
+	local part = Instance.new("Part")
+	part.Name = "XPPickup"
+	part.Shape = Enum.PartType.Ball
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.Material = Enum.Material.Neon
+	part.CastShadow = false
+	return part
+end
+
+local XPPickups = {}
+
+function XPPickups.init()
+	if container then
+		return
+	end
+	container = Instance.new("Folder")
+	container.Name = "XPPickups"
+	container.Parent = workspace
+	pool = Pool.new(buildTemplate(), 64)
+end
+
+-- El propietario de la partida decide qué significa recoger XP (subir de nivel,
+-- pausar la acción, avisar al cliente). Aquí solo se entrega el valor.
+function XPPickups.onCollect(handler: (Player, number) -> ())
+	collectHandler = handler
+end
+
+function XPPickups.count(): number
+	return #pickups
+end
+
+local function applyLook(pickup: Pickup)
+	local value = pickup.Value
+	local size = math.clamp(0.5 + value * 0.06, 0.5, 2)
+	pickup.Part.Size = Vector3.new(size, size, size)
+	pickup.Part.Color = if value >= 12 then Color3.fromRGB(120, 255, 150) else Color3.fromRGB(110, 190, 255)
+	pickup.Part.CFrame = CFrame.new(pickup.Position + Vector3.new(0, size * 0.5, 0))
+end
+
+-- Cuando hay demasiadas gotas en el suelo, la nueva se funde con la más cercana en
+-- lugar de instanciarse. La recompensa no se pierde y el jugador ve una gota mayor.
+local function mergeIntoClosest(position: Vector3, value: number): Pickup?
+	local best: Pickup? = nil
+	local bestDistance = Config.Pickups.MergeRadius * Config.Pickups.MergeRadius
+	for _, pickup in pickups do
+		local dx = pickup.Position.X - position.X
+		local dz = pickup.Position.Z - position.Z
+		local distance = dx * dx + dz * dz
+		if distance <= bestDistance then
+			bestDistance = distance
+			best = pickup
+		end
+	end
+	if best then
+		best.Value += value
+		applyLook(best)
+	end
+	return best
+end
+
+function XPPickups.spawn(position: Vector3, value: number): Pickup?
+	if not pool or value <= 0 then
+		return nil
+	end
+
+	if #pickups >= Config.Pickups.MaxActive then
+		return mergeIntoClosest(position, value)
+	end
+
+	local acquired, lease = pool:Get(function(instance)
+		local part = instance :: Part
+		part.Transparency = 0.15
+		part.Parent = container
+	end)
+
+	local pickup: Pickup = {
+		Part = acquired :: Part,
+		Position = position,
+		Value = value,
+		Slot = #pickups + 1,
+		Lease = lease,
+	}
+	-- El tamaño comunica el valor de un vistazo y evita tener que etiquetar nada.
+	applyLook(pickup)
+	table.insert(pickups, pickup)
+	return pickup
+end
+
+local function release(index: number)
+	local pickup = pickups[index]
+	local slot = pickup.Slot
+	local last = pickups[#pickups]
+	pickups[slot] = last
+	last.Slot = slot
+	table.remove(pickups)
+	pool:Release(pickup.Part, pickup.Lease)
+end
+
+local function refreshCandidates(now: number)
+	candidateCount = 0
+	for _, player in PlayerAvatar.alivePlayers() do
+		local root = PlayerAvatar.root(player)
+		if root then
+			candidateCount += 1
+			local slot = candidates[candidateCount]
+			if slot then
+				slot.player = player
+				slot.root = root
+				slot.radius = Stats.get(player, now).PickupRadius or 0
+			else
+				table.insert(candidates, {
+					player = player,
+					root = root,
+					radius = Stats.get(player, now).PickupRadius or 0,
+				})
+			end
+		end
+	end
+end
+
+local function updatePickup(index: number, dt: number)
+	local pickup = pickups[index]
+
+	-- Un solo recorrido decide quién atrae cada gota. En cooperativo la XP es
+	-- compartida, así que vale con el jugador vivo más cercano dentro de su radio.
+	local owner: Player? = nil
+	local ownerRoot: BasePart? = nil
+	local closest = math.huge
+	local radius = 0
+
+	for slot = 1, candidateCount do
+		local candidate = candidates[slot]
+		local root = candidate.root
+		local dx = root.Position.X - pickup.Position.X
+		local dz = root.Position.Z - pickup.Position.Z
+		local distance = math.sqrt(dx * dx + dz * dz)
+		if distance <= candidate.radius and distance < closest then
+			owner = candidate.player
+			ownerRoot = root
+			closest = distance
+			radius = candidate.radius
+		end
+	end
+
+	if owner and ownerRoot then
+		if closest <= COLLECT_RADIUS then
+			if collectHandler then
+				collectHandler(owner, pickup.Value)
+			end
+			release(index)
+			return
+		end
+
+		-- La atracción acelera al acercarse, así que el efecto "imán" se lee sin
+		-- necesidad de un tween por gota.
+		local closeness = 1 - math.clamp(closest / math.max(radius, 0.001), 0, 1)
+		local pull = MIN_PULL + (MAX_PULL - MIN_PULL) * closeness
+		local direction = ownerRoot.Position - pickup.Position
+		local distance = direction.Magnitude
+		if distance > 0.01 then
+			pickup.Position += (direction / distance) * pull * dt
+		end
+	end
+
+	local size = pickup.Part.Size.X
+	pickup.Part.CFrame = CFrame.new(pickup.Position + Vector3.new(0, size * 0.5, 0))
+end
+
+function XPPickups.update(dt: number)
+	if #pickups == 0 then
+		return
+	end
+	refreshCandidates(os.clock())
+	for index = #pickups, 1, -1 do
+		updatePickup(index, dt)
+	end
+end
+
+function XPPickups.clearAll()
+	for index = #pickups, 1, -1 do
+		release(index)
+	end
+end
+
+return XPPickups
+]]></string>
+          </Properties>
+        </Item>
+      </Item>
+      <Item class="ModuleScript" referent="62">
+        <Properties>
+          <string name="Name">PlayerAvatar</string>
+          <string name="Source"><![CDATA[--!strict
+-- Puente entre las estadísticas de la partida y el avatar del jugador.
+-- El Humanoid es la representación física de la vida y la velocidad; las cifras
+-- autoritativas viven en Stats, aquí solo se las proyectamos.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Types = require(Shared:WaitForChild("Types"))
+
+type StatBlock = Types.StatBlock
+
+local PlayerAvatar = {}
+
+function PlayerAvatar.humanoid(player: Player): Humanoid?
+	local character = player.Character
+	if not character then
+		return nil
+	end
+	return character:FindFirstChildOfClass("Humanoid")
+end
+
+function PlayerAvatar.root(player: Player): BasePart?
+	local character = player.Character
+	if not character then
+		return nil
+	end
+	return character:FindFirstChild("HumanoidRootPart") :: BasePart?
+end
+
+function PlayerAvatar.isAlive(player: Player): boolean
+	local humanoid = PlayerAvatar.humanoid(player)
+	return humanoid ~= nil and humanoid.Health > 0
+end
+
+-- Si sube la vida máxima, el jugador recibe la diferencia en vida actual: un +25
+-- de salud máxima se siente como una cura y no como una cura desperdiciada.
+function PlayerAvatar.applyStats(player: Player, stats: StatBlock)
+	local humanoid = PlayerAvatar.humanoid(player)
+	if not humanoid then
+		return
+	end
+
+	local maxHealth = math.max(1, stats.MaxHealth or humanoid.MaxHealth)
+	local previousMax = humanoid.MaxHealth
+	humanoid.MaxHealth = maxHealth
+	if maxHealth > previousMax and humanoid.Health > 0 then
+		humanoid.Health = math.min(maxHealth, humanoid.Health + (maxHealth - previousMax))
+	end
+
+	humanoid.WalkSpeed = stats.MoveSpeed or 16
+end
+
+-- La armadura resta daño plano con un suelo del 25% del daño original, para que
+-- nunca llegue a ser invulnerable.
+function PlayerAvatar.damage(player: Player, stats: StatBlock, amount: number): number
+	local humanoid = PlayerAvatar.humanoid(player)
+	if not humanoid or humanoid.Health <= 0 or amount <= 0 then
+		return 0
+	end
+	local armor = stats.Armor or 0
+	local applied = math.max(amount * 0.25, amount - armor)
+	applied = math.min(applied, humanoid.Health)
+	humanoid.Health = humanoid.Health - applied
+	return applied
+end
+
+function PlayerAvatar.heal(player: Player, amount: number)
+	local humanoid = PlayerAvatar.humanoid(player)
+	if not humanoid or humanoid.Health <= 0 or amount <= 0 then
+		return
+	end
+	humanoid.Health = math.min(humanoid.MaxHealth, humanoid.Health + amount)
+end
+
+function PlayerAvatar.teleport(player: Player, position: Vector3)
+	local root = PlayerAvatar.root(player)
+	if root then
+		root.CFrame = CFrame.new(position + Vector3.new(0, 4, 0))
+		root.AssemblyLinearVelocity = Vector3.zero
+	end
+end
+
+function PlayerAvatar.alivePlayers(): { Player }
+	local alive = {}
+	for _, player in Players:GetPlayers() do
+		if PlayerAvatar.isAlive(player) then
+			table.insert(alive, player)
+		end
+	end
+	return alive
+end
+
+return PlayerAvatar
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="Folder" referent="63">
+        <Properties>
+          <string name="Name">Progression</string>
+        </Properties>
+        <Item class="ModuleScript" referent="64">
+          <Properties>
+            <string name="Name">LevelUp</string>
+            <string name="Source"><![CDATA[--!strict
+-- Selección de mejora. Es el dueño del ciclo "ofrezco cartas → el jugador elige una
+-- → la aplico". El estado de partida y el reloj los lleva Match; aquí solo se sabe
+-- qué carta está pendiente y qué hay que aplicarle al jugador.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Registry = require(Shared:WaitForChild("Registry"))
+local UpgradeOffers = require(Shared:WaitForChild("UpgradeOffers"))
+local Types = require(Shared:WaitForChild("Types"))
+local Run = require(script.Parent.Parent.Run)
+local Stats = require(script.Parent.Parent.Stats)
+
+type UpgradeOffer = Types.UpgradeOffer
+
+local LevelUp = {}
+
+local queued: { [Player]: number } = {}
+local pending: { [Player]: { UpgradeOffer } } = {}
+
+function LevelUp.queuedLevels(player: Player): number
+	return queued[player] or 0
+end
+
+function LevelUp.awardLevels(player: Player, count: number)
+	queued[player] = (queued[player] or 0) + count
+end
+
+function LevelUp.pendingFor(player: Player): { UpgradeOffer }?
+	return pending[player]
+end
+
+function LevelUp.begin(player: Player, offerCount: number): { UpgradeOffer }
+	local luck = Stats.get(player).Luck or 1
+	local offers = UpgradeOffers.generate(Run.view(player), luck, math.random, offerCount)
+	queued[player] = 0
+	pending[player] = offers
+	return offers
+end
+
+local function apply(player: Player, offer: UpgradeOffer)
+	local run = Run.get(player)
+	local definition = Registry.Upgrades[offer.Id]
+
+	run.upgradeLevels[offer.Id] = (run.upgradeLevels[offer.Id] or 0) + 1
+
+	if offer.Kind == "NewWeapon" then
+		local weaponId = offer.TargetId
+		if weaponId then
+			run.weaponLevels[weaponId] = math.max(1, run.weaponLevels[weaponId] or 0)
+		end
+	elseif offer.TargetId == nil then
+		-- Las mejoras globales entran en el sistema de estadísticas, que es el único
+		-- que escribe sobre los valores base.
+		for _, modifier in definition.Modifiers do
+			Stats.add(player, modifier)
+		end
+	end
+	-- Las mejoras dirigidas a un arma no se registran aquí: WeaponRuntime las lee
+	-- desde run.upgradeLevels y las aplica sobre las estadísticas de ese arma.
+end
+
+-- Consume la carta elegida. Devolver false significa "no era una oferta vigente":
+-- el motivo concreto no le interesa al servidor, solo que no se aplicó nada.
+function LevelUp.consume(player: Player, upgradeId: string): boolean
+	local offers = pending[player]
+	if not offers then
+		return false
+	end
+
+	local chosen: UpgradeOffer? = nil
+	for _, offer in offers do
+		if offer.Id == upgradeId then
+			chosen = offer
+			break
+		end
+	end
+	if not chosen then
+		return false
+	end
+
+	pending[player] = nil
+	apply(player, chosen)
+	return true
+end
+
+function LevelUp.clear(player: Player)
+	queued[player] = nil
+	pending[player] = nil
+end
+
+return LevelUp
+]]></string>
+          </Properties>
+        </Item>
+      </Item>
+      <Item class="ModuleScript" referent="65">
+        <Properties>
+          <string name="Name">Run</string>
+          <string name="Source"><![CDATA[--!strict
+-- Estado de partida de un jugador: nivel, XP, armas y mejoras. Es memoria volátil;
+-- al terminar la partida se descarta. Nada de esto se guarda (eso es MetaData).
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Registry = require(Shared:WaitForChild("Registry"))
+local Progression = require(Shared:WaitForChild("Progression"))
+local Types = require(Shared:WaitForChild("Types"))
+
+type RunView = Types.RunView
+
+export type Run = {
+	player: Player,
+	level: number,
+	xp: number,
+	alive: boolean,
+	weaponLevels: { [string]: number },
+	upgradeLevels: { [string]: number },
+}
+
+local runs: { [Player]: Run } = {}
+
+local function create(player: Player): Run
+	local run: Run = {
+		player = player,
+		level = 1,
+		xp = 0,
+		alive = true,
+		weaponLevels = { [Registry.StartingWeaponId] = 1 },
+		upgradeLevels = {},
+	}
+	runs[player] = run
+	return run
+end
+
+local Run = {}
+
+function Run.get(player: Player): Run
+	return runs[player] or create(player)
+end
+
+function Run.release(player: Player)
+	runs[player] = nil
+end
+
+function Run.reset(player: Player)
+	create(player)
+end
+
+function Run.addXp(player: Player, amount: number): number
+	local run = runs[player]
+	if not run or amount <= 0 then
+		return 0
+	end
+	local level, xp, gained = Progression.addXp(run.level, run.xp, amount)
+	run.level = level
+	run.xp = xp
+	return gained
+end
+
+function Run.view(player: Player): RunView
+	local run = Run.get(player)
+	return {
+		level = run.level,
+		weaponLevels = run.weaponLevels,
+		upgradeLevels = run.upgradeLevels,
+	}
+end
+
+function Run.xpToNext(player: Player): number
+	local run = Run.get(player)
+	return Progression.xpForNext(run.level)
+end
+
+return Run
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="Folder" referent="66">
+        <Properties>
+          <string name="Name">Spawning</string>
+        </Properties>
+        <Item class="ModuleScript" referent="67">
+          <Properties>
+            <string name="Name">Difficulty</string>
+            <string name="Source"><![CDATA[--!strict
+-- La dificultad es una función pura del tiempo jugado. Todos los números viven en
+-- Config: ningún sistema multiplica su propia copia de "cuánto escala".
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+
+export type Profile = {
+	health: number,
+	speed: number,
+	spawnInterval: number,
+	batchSize: number,
+	maxAlive: number,
+}
+
+local Difficulty = {}
+
+function Difficulty.evaluate(elapsedSeconds: number): Profile
+	local minutes = math.max(0, elapsedSeconds) / 60
+	return {
+		health = 1 + minutes * Config.Scaling.HealthPerMinute,
+		speed = math.min(Config.Scaling.MaxSpeedMultiplier, 1 + minutes * Config.Scaling.SpeedPerMinute),
+		spawnInterval = math.max(
+			Config.Spawn.MinInterval,
+			Config.Spawn.BaseInterval - minutes * Config.Spawn.IntervalDecayPerMinute
+		),
+		batchSize = math.max(1, math.floor(Config.Spawn.BaseBatch + minutes * Config.Spawn.BatchPerMinute)),
+		maxAlive = math.max(
+			Config.Spawn.BaseMaxAlive,
+			math.floor(Config.Spawn.BaseMaxAlive + minutes * Config.Spawn.MaxAlivePerMinute)
+		),
+	}
+end
+
+return Difficulty
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="68">
+          <Properties>
+            <string name="Name">EnemySpawner</string>
+            <string name="Source"><![CDATA[--!strict
+-- Spawner independiente del GameManager. Decide qué aparece, cuándo y dónde, pero
+-- no sabe nada de comportamiento ni de daño: solo llama a EnemyRegistry.spawn.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local PlayerAvatar = require(script.Parent.Parent.PlayerAvatar)
+local Difficulty = require(script.Parent.Difficulty)
+local EnemyRegistry = require(script.Parent.Parent.Enemies.EnemyRegistry)
+
+-- Lista de contenido: añadir un enemigo nuevo es añadir una línea aquí.
+local GROUPS: { { enemyId: string, firstAt: number, weight: number } } = {
+	{ enemyId = "basic", firstAt = 0, weight = 1 },
+}
+
+local nextSpawnAt = 0
+
+local EnemySpawner = {}
+
+function EnemySpawner.reset(now: number)
+	nextSpawnAt = now + Config.Run.EnemySpawnGrace
+end
+
+local function pickEnemyId(elapsed: number): string?
+	local candidates = {}
+	local total = 0
+	for _, group in GROUPS do
+		if elapsed >= group.firstAt then
+			table.insert(candidates, group)
+			total += group.weight
+		end
+	end
+	if #candidates == 0 then
+		return nil
+	end
+
+	local target = math.random() * total
+	local accumulated = 0
+	for _, group in candidates do
+		accumulated += group.weight
+		if target <= accumulated then
+			return group.enemyId
+		end
+	end
+	return candidates[#candidates].enemyId
+end
+
+local function randomSpawnPoint(): Vector3?
+	local players = PlayerAvatar.alivePlayers()
+	if #players == 0 then
+		return nil
+	end
+	local anchor = PlayerAvatar.root(players[math.random(1, #players)])
+	if not anchor then
+		return nil
+	end
+
+	-- Nace en un anillo alrededor de un jugador, nunca encima: así el jugador
+	-- siempre tiene salida y el spawner no depende de un punto fijo del mapa.
+	local angle = math.random() * math.pi * 2
+	local distance = Config.Arena.SpawnRadiusMin
+		+ math.random() * (Config.Arena.SpawnRadiusMax - Config.Arena.SpawnRadiusMin)
+	return anchor.Position + Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance)
+end
+
+function EnemySpawner.update(now: number, elapsed: number)
+	if now < nextSpawnAt then
+		return
+	end
+
+	local profile = Difficulty.evaluate(elapsed)
+	nextSpawnAt = now + profile.spawnInterval
+
+	for _ = 1, profile.batchSize do
+		if EnemyRegistry.count() >= profile.maxAlive then
+			return
+		end
+		local enemyId = pickEnemyId(elapsed)
+		local position = randomSpawnPoint()
+		if enemyId and position then
+			EnemyRegistry.spawn(enemyId, position, profile)
+		end
+	end
+end
+
+return EnemySpawner
+]]></string>
+          </Properties>
+        </Item>
+      </Item>
+      <Item class="ModuleScript" referent="69">
+        <Properties>
+          <string name="Name">Stats</string>
+          <string name="Source"><![CDATA[--!strict
+-- Estadísticas por jugador. Es el único dueño de los modificadores de una partida:
+-- nadie más escribe en Config.PlayerBaseStats, así que las pasivas y los buffs
+-- temporales se acumulan aquí y se resuelven con el módulo puro StatMath.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local StatMath = require(Shared:WaitForChild("StatMath"))
+local Types = require(Shared:WaitForChild("Types"))
+
+type StatBlock = Types.StatBlock
+type StatModifier = Types.StatModifier
+
+type Entry = {
+	modifier: StatModifier,
+	expiresAt: number?,
+}
+
+local entries: { [Player]: { Entry } } = {}
+local cache: { [Player]: StatBlock } = {}
+local nextExpiry: { [Player]: number? } = {}
+
+local function listFor(player: Player): { Entry }
+	local list = entries[player]
+	if not list then
+		list = {}
+		entries[player] = list
+	end
+	return list
+end
+
+local function prune(player: Player, now: number): { StatModifier }
+	-- listFor y no entries[player]: un get() legitimo puede llegar sin modificadores
+	-- todavia (jugador recien limpiado al arrancar la partida), y un jugador sin
+	-- modificadores debe resolver simplemente las estadisticas base.
+	local list = listFor(player)
+	local modifiers: { StatModifier } = {}
+	local kept: { Entry } = {}
+	local soonest: number? = nil
+
+	for _, entry in list do
+		if entry.expiresAt then
+			if entry.expiresAt <= now then
+				continue
+			end
+			if soonest == nil or entry.expiresAt < soonest then
+				soonest = entry.expiresAt
+			end
+		end
+		table.insert(kept, entry)
+		table.insert(modifiers, entry.modifier)
+	end
+
+	entries[player] = kept
+	nextExpiry[player] = soonest
+	return modifiers
+end
+
+local Stats = {}
+
+function Stats.add(player: Player, modifier: StatModifier)
+	local entry: Entry = { modifier = modifier }
+	if modifier.duration then
+		entry.expiresAt = os.clock() + modifier.duration
+	end
+	table.insert(listFor(player), entry)
+	cache[player] = nil
+end
+
+-- Quita todos los modificadores de una fuente concreta: al mejorar un arma se
+-- reemplaza su lista en lugar de sumar encima de la anterior.
+function Stats.removeSource(player: Player, source: string)
+	local list = entries[player]
+	if not list then
+		return
+	end
+	local kept = {}
+	for _, entry in list do
+		if entry.modifier.source ~= source then
+			table.insert(kept, entry)
+		end
+	end
+	entries[player] = kept
+	cache[player] = nil
+end
+
+function Stats.clear(player: Player)
+	entries[player] = nil
+	cache[player] = nil
+	nextExpiry[player] = nil
+end
+
+-- Se recalcula solo cuando cambia algo o cuando vence un buff temporal, para que
+-- llamarlo en cada frame no genere basura.
+function Stats.get(player: Player, now: number?): StatBlock
+	local clock = now or os.clock()
+	local cached = cache[player]
+	local due = nextExpiry[player]
+	if cached and (due == nil or clock < due) then
+		return cached
+	end
+
+	local modifiers = prune(player, clock)
+	local stats = StatMath.resolve(Config.PlayerBaseStats, modifiers)
+	cache[player] = stats
+	return stats
+end
+
+-- Segundos restantes de los buffs temporales, para el HUD.
+function Stats.buffTimers(player: Player, now: number?): { { Name: string, Remaining: number } }
+	local clock = now or os.clock()
+	local list = entries[player]
+	local timers = {}
+	if not list then
+		return timers
+	end
+	for _, entry in list do
+		if entry.expiresAt and entry.expiresAt > clock then
+			table.insert(timers, {
+				Name = entry.modifier.source,
+				Remaining = entry.expiresAt - clock,
+			})
+		end
+	end
+	return timers
+end
+
+return Stats
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="Folder" referent="70">
+        <Properties>
+          <string name="Name">Utility</string>
+        </Properties>
+        <Item class="ModuleScript" referent="71">
+          <Properties>
+            <string name="Name">Pool</string>
+            <string name="Source"><![CDATA[--!strict
+-- Pool de instancias con token de propiedad. El llamante recibe un token junto al
+-- objeto y debe devolverlo al liberar; así una referencia retrasada (por ejemplo un
+-- impacto pendiente) no puede devolver al pool un objeto que ya fue reciclado.
+local Pool = {}
+Pool.__index = Pool
+
+export type Pooled = {
+	Get: (self: Pool, transform: (Instance) -> ()) -> (Instance, any),
+	Release: (self: Pool, instance: Instance, lease: any) -> boolean,
+	Count: (self: Pool) -> number,
+	Destroy: (self: Pool) -> (),
+}
+
+function Pool.new(template: Instance, prewarm: number?): Pool
+	local self = setmetatable({
+		_template = template,
+		_available = {},
+		_leases = {},
+		_created = 0,
+	}, Pool)
+
+	for _ = 1, prewarm or 0 do
+		local instance = template:Clone()
+		instance.Parent = nil
+		table.insert(self._available, instance)
+		self._created += 1
+	end
+
+	return self
+end
+
+function Pool:Get(apply: (Instance) -> ()): (Instance, any)
+	local instance = table.remove(self._available)
+	if not instance then
+		instance = self._template:Clone()
+		self._created += 1
+	end
+	local lease = {}
+	self._leases[instance] = lease
+	apply(instance)
+	return instance, lease
+end
+
+function Pool:Release(instance: Instance, lease: any): boolean
+	if lease == nil or self._leases[instance] ~= lease then
+		return false
+	end
+	self._leases[instance] = nil
+	instance.Parent = nil
+	table.insert(self._available, instance)
+	return true
+end
+
+function Pool:Count(): number
+	return #self._available
+end
+
+function Pool:Destroy()
+	for _, instance in self._available do
+		instance:Destroy()
+	end
+	table.clear(self._available)
+	table.clear(self._leases)
+end
+
+return Pool
+]]></string>
+          </Properties>
+        </Item>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="SoundService" referent="72">
+    <Properties>
+      <string name="Name">SoundService</string>
+    </Properties>
+  </Item>
+  <Item class="StarterPlayer" referent="73">
+    <Properties>
+      <string name="Name">StarterPlayer</string>
+    </Properties>
+    <Item class="StarterPlayerScripts" referent="74">
+      <Properties>
+        <string name="Name">StarterPlayerScripts</string>
+      </Properties>
+      <Item class="Folder" referent="75">
+        <Properties>
+          <string name="Name">Client</string>
+        </Properties>
+        <Item class="Folder" referent="76">
+          <Properties>
+            <string name="Name">Camera</string>
+          </Properties>
+          <Item class="ModuleScript" referent="77">
+            <Properties>
+              <string name="Name">TopDownCamera</string>
+              <string name="Source"><![CDATA[--!strict
+-- Cámara top-down isométrica ligera. Scriptable para que el motor no la sobrescriba,
+-- y PreRender (nunca Heartbeat) para que la imagen vaya sincronizada con el frame.
+-- No lee nada de la partida: sigue al personaje, y el servidor decide dónde está.
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+
+local localPlayer = game:GetService("Players").LocalPlayer
+local camera = workspace.CurrentCamera
+
+local connection: RBXScriptConnection? = nil
+
+local TopDownCamera = {}
+
+function TopDownCamera.start()
+	if connection or not camera then
+		return
+	end
+
+	camera.CameraType = Enum.CameraType.Scriptable
+	camera.FieldOfView = Config.Camera.FieldOfView
+
+	connection = RunService.PreRender:Connect(function(dt)
+		local character = localPlayer.Character
+		if not character then
+			return
+		end
+
+		-- CameraSubject solo no puede ser nil: ponerlo lo revierte al anterior.
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if humanoid and camera.CameraSubject ~= humanoid then
+			camera.CameraSubject = humanoid
+		end
+
+		local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if not root then
+			return
+		end
+
+		local focus = root.Position
+		local goal = CFrame.lookAt(focus + Config.Camera.Offset, focus)
+		camera.CFrame = camera.CFrame:Lerp(goal, math.min(dt * Config.Camera.Smoothing, 1))
+	end)
+end
+
+function TopDownCamera.stop()
+	if connection then
+		connection:Disconnect()
+		connection = nil
+	end
+end
+
+return TopDownCamera
+]]></string>
+            </Properties>
+          </Item>
+        </Item>
+        <Item class="Folder" referent="78">
+          <Properties>
+            <string name="Name">Input</string>
+          </Properties>
+          <Item class="ModuleScript" referent="79">
+            <Properties>
+              <string name="Name">RunInput</string>
+              <string name="Source"><![CDATA[--!strict
+-- Entrada: usa los controles por defecto de Roblox (que ya cubren teclado, mando y
+-- joystick táctil) y solo los desactiva cuando la partida está pausada. No se crea un
+-- sistema de input paralelo: el HUD de móvil y el mando siguen funcionando igual.
+local Players = game:GetService("Players")
+
+local localPlayer = Players.LocalPlayer
+local playerModule = require(localPlayer.PlayerScripts:WaitForChild("PlayerModule"))
+local controls = playerModule:GetControls()
+
+local enabled = true
+
+local RunInput = {}
+
+function RunInput.setEnabled(next: boolean)
+	if next == enabled then
+		return
+	end
+	enabled = next
+	if next then
+		controls:Enable()
+	else
+		controls:Disable()
+	end
+end
+
+function RunInput.isEnabled(): boolean
+	return enabled
+end
+
+return RunInput
+]]></string>
+            </Properties>
+          </Item>
+        </Item>
+        <Item class="LocalScript" referent="80">
+          <Properties>
+            <string name="Name">Main</string>
+            <string name="Source"><![CDATA[--!strict
+-- Arranque del cliente: construye la UI, conecta los listeners y avisa de que está
+-- listo. Nada de aquí concede nada; el cliente pide y el servidor decide.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Types = require(Shared:WaitForChild("Types"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
+local TopDownCamera = require(script.Parent.Camera.TopDownCamera)
+local RunInput = require(script.Parent.Input.RunInput)
+local Hud = require(script.Parent.UI.Hud)
+local LevelUpPanel = require(script.Parent.UI.LevelUpPanel)
+local ResultPanel = require(script.Parent.UI.ResultPanel)
+local CombatFeedback = require(script.Parent.VFX.CombatFeedback)
+
+type MatchState = Types.MatchState
+type RunSnapshot = Types.RunSnapshot
+type UpgradeOffer = Types.UpgradeOffer
+
+Hud.build()
+LevelUpPanel.build(function(upgradeId: string)
+	Remotes.RequestUpgrade:FireServer(upgradeId)
+end)
+ResultPanel.build()
+CombatFeedback.build()
+TopDownCamera.start()
+
+local lastLevel = 1
+
+Remotes.RunSnapshot.OnClientEvent:Connect(function(snapshot: RunSnapshot)
+	lastLevel = snapshot.Level
+	Hud.apply(snapshot)
+end)
+
+Remotes.MatchStateChanged.OnClientEvent:Connect(
+	function(state: MatchState, elapsed: number, offers: { UpgradeOffer }?)
+		-- Los estados "Event" y "Boss" también simulan: la partida sigue viva, así que el
+		-- jugador mantiene el control.
+		local simulated = state == "Playing" or state == "Event" or state == "Boss"
+		RunInput.setEnabled(simulated)
+
+		if state == "LevelUp" and offers and #offers > 0 then
+			LevelUpPanel.show(offers)
+		else
+			LevelUpPanel.hide()
+		end
+
+		if state == "Defeat" or state == "Victory" then
+			ResultPanel.show(state, elapsed, lastLevel)
+		else
+			ResultPanel.hide()
+		end
+	end
+)
+
+Remotes.UpgradeChosen.OnClientEvent:Connect(function(_upgradeId: string)
+	LevelUpPanel.hide()
+end)
+
+Remotes.CombatEffect.OnClientEvent:Connect(
+	function(kind: string, position: Vector3, magnitude: number, target: Vector3?)
+		CombatFeedback.play(kind, position, magnitude, target)
+	end
+)
+
+-- Todos los listeners estan registrados: ahora si el servidor puede enviar el estado.
+Remotes.ClientReady:FireServer()
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="Folder" referent="81">
+          <Properties>
+            <string name="Name">UI</string>
+          </Properties>
+          <Item class="ModuleScript" referent="82">
+            <Properties>
+              <string name="Name">Hud</string>
+              <string name="Source"><![CDATA[--!strict
+-- HUD de la partida: reloj, nivel y XP, vida, y el resumen de la build (armas y
+-- mejoras). Solo pinta el snapshot que envía el servidor: un botón del HUD nunca
+-- concede nada, así que aquí no hay ninguna autoridad.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Types = require(Shared:WaitForChild("Types"))
+local Utilities = Shared:WaitForChild("Utilities")
+local Format = require(Utilities:WaitForChild("Format"))
+local UIKit = require(script.Parent.UIKit)
+
+type RunSnapshot = Types.RunSnapshot
+type WeaponView = Types.WeaponView
+type PassiveView = Types.PassiveView
+
+local ROWS = 12
+local PANEL_BG = Color3.fromRGB(14, 16, 22)
+
+local timerLabel: TextLabel
+local levelLabel: TextLabel
+local xpBar: { Root: Frame, Fill: Frame }
+local hpBar: { Root: Frame, Fill: Frame }
+local hpLabel: TextLabel
+local buffLabel: TextLabel
+local rows: { { Root: Frame, Icon: TextLabel, Name: TextLabel, Level: TextLabel } } = {}
+
+local function clampSize(frame: Frame, minimum: Vector2, maximum: Vector2)
+	local constraint = Instance.new("UISizeConstraint")
+	constraint.MinSize = minimum
+	constraint.MaxSize = maximum
+	constraint.Parent = frame
+end
+
+local Hud = {}
+
+function Hud.build()
+	local gui = UIKit.screen("Hud", 10)
+
+	-- TOP: reloj + nivel + barra de XP
+	local top =
+		UIKit.frame(gui, "Top", UDim2.new(0.36, 0, 0, 74), UDim2.new(0.5, 0, 0, 10), Vector2.new(0.5, 0))
+	clampSize(top, Vector2.new(220, 74), Vector2.new(420, 74))
+
+	timerLabel = UIKit.label(
+		top,
+		"Timer",
+		"0:00",
+		UDim2.new(1, 0, 0, 34),
+		nil,
+		nil,
+		Color3.fromRGB(245, 247, 252),
+		true
+	)
+	timerLabel.TextXAlignment = Enum.TextXAlignment.Center
+	timerLabel.TextSize = 26
+
+	xpBar = UIKit.bar(top, "XPBar", 14, Color3.fromRGB(255, 214, 92))
+	xpBar.Root.Position = UDim2.new(0, 0, 0, 40)
+
+	levelLabel = UIKit.label(
+		xpBar.Root,
+		"Level",
+		"NIV 1",
+		UDim2.new(1, -12, 1, 0),
+		UDim2.new(0, 6, 0, 0),
+		nil,
+		Color3.fromRGB(18, 20, 26),
+		true
+	)
+	levelLabel.TextSize = 11
+
+	-- Debajo del reloj: buffs temporales con su cuenta atrás. Se oculta solo cuando no
+	-- hay ninguno, así que no ocupa sitio en el 99% de la partida.
+	buffLabel = UIKit.label(
+		gui,
+		"Buffs",
+		"",
+		UDim2.new(0.7, 0, 0, 22),
+		UDim2.new(0.5, 0, 0, 92),
+		Vector2.new(0.5, 0),
+		Config.UI.Accent,
+		true
+	)
+	buffLabel.TextSize = 14
+	buffLabel.TextXAlignment = Enum.TextXAlignment.Center
+
+	-- ABAJO IZQUIERDA: vida
+	local health = UIKit.frame(
+		gui,
+		"Health",
+		UDim2.new(0.22, 0, 0, 46),
+		UDim2.new(0, 20, 1, -20),
+		Vector2.new(0, 1),
+		PANEL_BG
+	)
+	clampSize(health, Vector2.new(190, 46), Vector2.new(330, 46))
+
+	hpBar = UIKit.bar(health, "HPBar", 14, Color3.fromRGB(226, 84, 96))
+	hpBar.Root.Position = UDim2.new(0, 10, 0, 8)
+	hpBar.Root.Size = UDim2.new(1, -20, 0, 14)
+
+	hpLabel = UIKit.label(
+		health,
+		"HPText",
+		"100 / 100",
+		UDim2.new(1, 0, 0, 16),
+		UDim2.new(0, 0, 0, 26),
+		nil,
+		Color3.fromRGB(214, 219, 228)
+	)
+	hpLabel.TextSize = 13
+
+	-- ABAJO DERECHA: armas y mejoras
+	local build = UIKit.frame(
+		gui,
+		"Build",
+		UDim2.new(0.2, 0, 0, 26 + ROWS * 26),
+		UDim2.new(1, -20, 1, -20),
+		Vector2.new(1, 1),
+		PANEL_BG
+	)
+	clampSize(build, Vector2.new(180, 120), Vector2.new(300, 340))
+
+	for index = 1, ROWS do
+		local row = UIKit.frame(
+			build,
+			`Row{index}`,
+			UDim2.new(1, -16, 0, 22),
+			UDim2.new(0, 8, 0, 6 + (index - 1) * 26),
+			nil,
+			Color3.fromRGB(24, 27, 35)
+		)
+		local icon = UIKit.label(row, "Icon", "", UDim2.new(0, 24, 1, 0))
+		icon.TextSize = 15
+		local name = UIKit.label(row, "Name", "", UDim2.new(1, -66, 1, 0), UDim2.new(0, 26, 0, 0))
+		name.TextSize = 13
+		local level = UIKit.label(
+			row,
+			"Level",
+			"",
+			UDim2.new(0, 44, 1, 0),
+			UDim2.new(1, -6, 0, 0),
+			nil,
+			Color3.fromRGB(168, 175, 188)
+		)
+		level.TextSize = 12
+		level.TextXAlignment = Enum.TextXAlignment.Right
+		table.insert(rows, { Root = row, Icon = icon, Name = name, Level = level })
+	end
+end
+
+function Hud.apply(snapshot: RunSnapshot)
+	timerLabel.Text = Format.clock(snapshot.Elapsed)
+
+	local xpRatio = if snapshot.XPToNext > 0 then snapshot.XP / snapshot.XPToNext else 0
+	xpBar.Fill.Size = UDim2.new(math.clamp(xpRatio, 0, 1), 0, 1, 0)
+	levelLabel.Text = `NIV {snapshot.Level}`
+
+	local healthRatio = if snapshot.MaxHealth > 0 then snapshot.Health / snapshot.MaxHealth else 0
+	hpBar.Fill.Size = UDim2.new(math.clamp(healthRatio, 0, 1), 0, 1, 0)
+	hpLabel.Text = `{math.ceil(snapshot.Health)} / {math.ceil(snapshot.MaxHealth)}`
+
+	if #snapshot.Buffs > 0 then
+		local active = {}
+		for _, buff in snapshot.Buffs do
+			table.insert(active, `{buff.Name} {math.ceil(buff.Remaining)}s`)
+		end
+		buffLabel.Text = table.concat(active, "   ")
+		buffLabel.Visible = true
+	else
+		buffLabel.Visible = false
+	end
+
+	local index = 1
+	local overflow = 0
+	local function place(icon: string, name: string, level: number, maxLevel: number)
+		if index > ROWS then
+			overflow += 1
+			return
+		end
+		local row = rows[index]
+		row.Icon.Text = icon
+		row.Name.Text = name
+		row.Level.Text = `{level}/{maxLevel}`
+		row.Root.Visible = true
+		index += 1
+	end
+
+	for _, weapon in snapshot.Weapons do
+		place(weapon.Icon, weapon.Name, weapon.Level, weapon.MaxLevel)
+	end
+	for _, passive in snapshot.Passives do
+		place(passive.Icon, passive.Name, passive.Level, passive.MaxLevel)
+	end
+	for slot = index, ROWS do
+		rows[slot].Root.Visible = false
+	end
+
+	-- Una build larga no puede esconder entradas sin avisar: la ultima fila tella
+	-- cuantas quedan fuera en vez de dejar al jugador creyendo que se las comio.
+	if overflow > 0 then
+		local row = rows[ROWS]
+		row.Icon.Text = "+"
+		row.Name.Text = `{overflow} mas`
+		row.Level.Text = ""
+		row.Root.Visible = true
+	end
+end
+
+return Hud
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="83">
+            <Properties>
+              <string name="Name">LevelUpPanel</string>
+              <string name="Source"><![CDATA[--!strict
+-- Panel de subida de nivel. Es presentacion pura: muestra las ofertas que envia el
+-- servidor y devuelve el identificador elegido. La carta se aplica en el servidor.
+local GuiService = game:GetService("GuiService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Types = require(Shared:WaitForChild("Types"))
+local UIKit = require(script.Parent.UIKit)
+
+type UpgradeOffer = Types.UpgradeOffer
+
+local GAP = Config.UI.CardGap
+local MIN_CARD_WIDTH = 150
+local SIDE_MARGIN = 24
+
+local CARD_BG = Color3.fromRGB(19, 21, 28)
+local MUTED = Color3.fromRGB(158, 165, 178)
+
+local gui: ScreenGui? = nil
+local row: Frame? = nil
+local onChoose: ((string) -> ())? = nil
+local current: { UpgradeOffer } = {}
+
+local function viewport(): Vector2
+	local camera = workspace.CurrentCamera
+	return if camera then camera.ViewportSize else Vector2.new(1280, 720)
+end
+
+local function clearCards()
+	if not row then
+		return
+	end
+	for _, child in row:GetChildren() do
+		if child:IsA("GuiObject") then
+			child:Destroy()
+		end
+	end
+end
+
+-- Tarjeta de una oferta. El hueco y el centrado los pone un UIListLayout, no una
+-- cuenta de posiciones: asi el grupo queda centrado para cualquier numero de cartas
+-- y en cualquier viewport sin tocar la aritmetica.
+local function buildCard(offer: UpgradeOffer, size: UDim2, index: number): TextButton
+	local color = UIKit.rarityColor(offer.Rarity)
+
+	local card = UIKit.frame(row :: Instance, "Card", size, UDim2.new(0, 0, 0, 0), Vector2.new(0, 0), CARD_BG)
+	card.LayoutOrder = index
+	local stroke = UIKit.stroke(card, color, 2)
+
+	-- Tinte de raton/mando. Se crea antes que las etiquetas para quedar detras de ellas.
+	local hover = UIKit.frame(card, "Hover", UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), nil, color)
+	hover.BackgroundTransparency = 1
+
+	local button = Instance.new("TextButton")
+	button.Name = "Pick"
+	button.Size = UDim2.new(1, 0, 1, 0)
+	button.BackgroundTransparency = 1
+	button.Text = ""
+	button.AutoButtonColor = false
+	button.Parent = card
+
+	local strip = UIKit.frame(card, "Rarity", UDim2.new(1, 0, 0, 5), UDim2.new(0, 0, 0, 0), nil, color)
+	strip.BackgroundTransparency = 0
+
+	local icon = UIKit.label(card, "Icon", offer.Icon, UDim2.new(1, 0, 0, 74), UDim2.new(0, 0, 0, 16))
+	icon.TextSize = 46
+	icon.TextXAlignment = Enum.TextXAlignment.Center
+
+	local name = UIKit.label(card, "Name", offer.Name, UDim2.new(1, -16, 0, 28), UDim2.new(0, 8, 0, 92))
+	name.TextSize = 21
+	name.TextXAlignment = Enum.TextXAlignment.Center
+
+	local levelText = if offer.Kind == "NewWeapon"
+		then "NUEVA ARMA"
+		else `{offer.CurrentLevel}  >  {offer.NextLevel}`
+	local levelLabel = UIKit.label(
+		card,
+		"Level",
+		levelText,
+		UDim2.new(1, -16, 0, 20),
+		UDim2.new(0, 8, 0, 122),
+		nil,
+		color,
+		true
+	)
+	levelLabel.TextSize = 14
+	levelLabel.TextXAlignment = Enum.TextXAlignment.Center
+
+	local rarityLabel = UIKit.label(
+		card,
+		"Rarity",
+		string.upper(offer.Rarity),
+		UDim2.new(1, -16, 0, 16),
+		UDim2.new(0, 8, 0, 144),
+		nil,
+		MUTED
+	)
+	rarityLabel.TextSize = 11
+	rarityLabel.TextXAlignment = Enum.TextXAlignment.Center
+
+	local description = UIKit.label(
+		card,
+		"Description",
+		offer.Description,
+		UDim2.new(1, -22, 1, -212),
+		UDim2.new(0, 11, 0, 168)
+	)
+	description.TextSize = 14
+	description.TextColor3 = Color3.fromRGB(186, 192, 204)
+	description.TextXAlignment = Enum.TextXAlignment.Center
+
+	-- Atajo de teclado: en PC es la forma mas rapida de elegir, y el numero coincide con
+	-- la posicion de la carta.
+	local badge = UIKit.frame(
+		card,
+		"Badge",
+		UDim2.fromOffset(24, 24),
+		UDim2.new(1, -34, 1, -34),
+		Vector2.new(0, 0),
+		Color3.fromRGB(32, 35, 44)
+	)
+	local badgeLabel =
+		UIKit.label(badge, "Text", tostring(index), UDim2.new(1, 0, 1, 0), nil, nil, color, true)
+	badgeLabel.TextSize = 13
+	badgeLabel.TextXAlignment = Enum.TextXAlignment.Center
+
+	local function choose()
+		if onChoose then
+			onChoose(offer.Id)
+		end
+	end
+
+	local function setHover(entered: boolean)
+		hover.BackgroundTransparency = if entered then 0.88 else 1
+		stroke.Thickness = if entered then 3 else 2
+	end
+
+	button.Activated:Connect(choose)
+	button.MouseEnter:Connect(function()
+		setHover(true)
+	end)
+	button.MouseLeave:Connect(function()
+		setHover(false)
+	end)
+	button.MouseButton1Down:Connect(function()
+		setHover(true)
+	end)
+	button.Selectable = true
+	return button
+end
+
+local LevelUpPanel = {}
+
+function LevelUpPanel.build(chooseHandler: (string) -> ())
+	onChoose = chooseHandler
+
+	gui = UIKit.screen("LevelUpPanel", 20)
+	gui.Enabled = false
+
+	local dim =
+		UIKit.frame(gui, "Dim", UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), nil, Color3.fromRGB(7, 8, 12))
+	dim.BackgroundTransparency = 0.45
+
+	local title = UIKit.label(
+		gui,
+		"Title",
+		"NIVEL SUPERADO",
+		UDim2.new(1, 0, 0, 46),
+		UDim2.new(0, 0, 0.2, 0),
+		nil,
+		Config.UI.Accent,
+		true
+	)
+	title.TextSize = 34
+	title.TextXAlignment = Enum.TextXAlignment.Center
+
+	local subtitle = UIKit.label(
+		gui,
+		"Subtitle",
+		"Elige una mejora",
+		UDim2.new(1, 0, 0, 22),
+		UDim2.new(0, 0, 0.2, 46),
+		nil,
+		MUTED
+	)
+	subtitle.TextSize = 16
+	subtitle.TextXAlignment = Enum.TextXAlignment.Center
+
+	row = UIKit.frame(
+		gui,
+		"Row",
+		UDim2.new(1, -SIDE_MARGIN * 2, 0.5, 0),
+		UDim2.new(0.5, 0, 0.55, 0),
+		Vector2.new(0.5, 0.5)
+	)
+	row.BackgroundTransparency = 1
+
+	-- El centrado lo hace el layout, no la posicion de cada carta: asi el grupo queda
+	-- centrado con 3 o con 4 ofertas y en cualquier resolucion sin aritmetica.
+	local layout = Instance.new("UIListLayout")
+	layout.Name = "Layout"
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.Padding = UDim.new(0, GAP)
+	layout.Parent = row
+
+	-- En movil y consola las cartas cambian de tamano; reconstruirlas es mas barato
+	-- que mantener un layout manual sincronizado con el viewport.
+	local camera = workspace.CurrentCamera
+	if camera then
+		camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+			if #current > 0 then
+				LevelUpPanel.show(current)
+			end
+		end)
+	end
+
+	UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
+		if processed or #current == 0 then
+			return
+		end
+		local index = if input.KeyCode == Enum.KeyCode.One
+			then 1
+			elseif input.KeyCode == Enum.KeyCode.Two then 2
+			elseif input.KeyCode == Enum.KeyCode.Three then 3
+			elseif input.KeyCode == Enum.KeyCode.Four then 4
+			else nil
+		if index and current[index] then
+			onChoose(current[index].Id)
+		end
+	end)
+end
+
+function LevelUpPanel.show(offers: { UpgradeOffer })
+	if not gui or not row then
+		return
+	end
+
+	current = offers
+	clearCards()
+
+	local size = viewport()
+	local count = math.max(1, #offers)
+	local available = size.X - SIDE_MARGIN * 2 - GAP * (count - 1)
+	local width = math.clamp(available / count, MIN_CARD_WIDTH, Config.UI.CardWidth)
+	local height = math.min(Config.UI.CardHeight, size.Y * 0.55)
+	local cardSize = UDim2.fromOffset(width, height)
+
+	local firstButton: TextButton? = nil
+	for index, offer in offers do
+		local button = buildCard(offer, cardSize, index)
+		firstButton = firstButton or button
+	end
+
+	gui.Enabled = true
+	GuiService.SelectedObject = firstButton
+end
+
+function LevelUpPanel.hide()
+	if not gui then
+		return
+	end
+	current = {}
+	gui.Enabled = false
+	GuiService.SelectedObject = nil
+	clearCards()
+end
+
+return LevelUpPanel
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="84">
+            <Properties>
+              <string name="Name">ResultPanel</string>
+              <string name="Source"><![CDATA[--!strict
+-- Fin de partida: derrota o victoria. Solo pinta el estado que recibe del servidor.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Format = require(Shared:WaitForChild("Utilities"):WaitForChild("Format"))
+local UIKit = require(script.Parent.UIKit)
+
+local gui: ScreenGui? = nil
+local title: TextLabel? = nil
+local subtitle: TextLabel? = nil
+
+local ResultPanel = {}
+
+function ResultPanel.build()
+	gui = UIKit.screen("ResultPanel", 30)
+	gui.Enabled = false
+
+	local dim =
+		UIKit.frame(gui, "Dim", UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), nil, Color3.fromRGB(10, 6, 8))
+	dim.BackgroundTransparency = 0.45
+
+	title = UIKit.label(
+		gui,
+		"Title",
+		"",
+		UDim2.new(1, 0, 0, 60),
+		UDim2.new(0, 0, 0.34, 0),
+		nil,
+		Color3.fromRGB(240, 240, 245),
+		true
+	)
+	title.TextSize = 52
+	title.TextXAlignment = Enum.TextXAlignment.Center
+
+	subtitle = UIKit.label(
+		gui,
+		"Subtitle",
+		"",
+		UDim2.new(1, 0, 0, 28),
+		UDim2.new(0, 0, 0.34, 0) + UDim2.new(0, 66, 0, 0)
+	)
+	subtitle.TextSize = 20
+	subtitle.TextColor3 = Color3.fromRGB(206, 210, 220)
+	subtitle.TextXAlignment = Enum.TextXAlignment.Center
+end
+
+function ResultPanel.show(state: string, elapsed: number, level: number)
+	if not gui or not title or not subtitle then
+		return
+	end
+
+	if state == "Defeat" then
+		title.Text = "DERROTA"
+		title.TextColor3 = Color3.fromRGB(238, 116, 116)
+		subtitle.Text = `Nivel {level}  ·  {Format.clock(elapsed)} sobrevividos  ·  reiniciando...`
+		gui.Enabled = true
+	elseif state == "Victory" then
+		title.Text = "VICTORIA"
+		title.TextColor3 = Color3.fromRGB(255, 214, 92)
+		subtitle.Text = `Nivel {level}  ·  {Format.clock(elapsed)} sobrevividos`
+		gui.Enabled = true
+	else
+		gui.Enabled = false
+	end
+end
+
+function ResultPanel.hide()
+	if gui then
+		gui.Enabled = false
+	end
+end
+
+return ResultPanel
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="85">
+            <Properties>
+              <string name="Name">UIKit</string>
+              <string name="Source"><![CDATA[--!strict
+-- Fábrica mínima de widgets. Solo crea instancias y aplica propiedades: no guarda
+-- estado de juego ni decide qué se muestra. Quien lo usa (Hud, LevelUpPanel) es
+-- dueño de sus referencias y de su limpieza.
+local Players = game:GetService("Players")
+
+local UIKit = {}
+
+local localPlayer = Players.LocalPlayer
+local playerGui = localPlayer:WaitForChild("PlayerGui")
+
+local FONT_BOLD = Enum.Font.GothamBold
+local FONT = Enum.Font.Gotham
+
+local RARITY_COLORS = {
+	Common = Color3.fromRGB(198, 205, 214),
+	Uncommon = Color3.fromRGB(108, 214, 122),
+	Rare = Color3.fromRGB(96, 168, 255),
+	Epic = Color3.fromRGB(196, 116, 255),
+	Legendary = Color3.fromRGB(255, 186, 66),
+}
+
+function UIKit.rarityColor(rarity: string): Color3
+	return RARITY_COLORS[rarity] or RARITY_COLORS.Common
+end
+
+function UIKit.screen(name: string, displayOrder: number): ScreenGui
+	local gui = Instance.new("ScreenGui")
+	gui.Name = name
+	gui.ResetOnSpawn = false
+	gui.IgnoreGuiInset = false
+	gui.DisplayOrder = displayOrder
+	gui.Parent = playerGui
+	return gui
+end
+
+function UIKit.frame(
+	parent: Instance,
+	name: string,
+	size: UDim2,
+	position: UDim2,
+	anchor: Vector2?,
+	color: Color3?
+): Frame
+	local frame = Instance.new("Frame")
+	frame.Name = name
+	frame.Size = size
+	frame.Position = position
+	frame.AnchorPoint = anchor or Vector2.new(0, 0)
+	frame.BackgroundColor3 = color or Color3.fromRGB(16, 18, 24)
+	frame.BackgroundTransparency = if color then 0 else 0.35
+	frame.BorderSizePixel = 0
+	frame.Parent = parent
+	UIKit.corner(frame, UDim.new(0, 10))
+	return frame
+end
+
+function UIKit.corner(frame: Frame, radius: UDim)
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = radius
+	corner.Parent = frame
+	return corner
+end
+
+function UIKit.stroke(frame: Frame, color: Color3, thickness: number)
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = color
+	stroke.Thickness = thickness
+	stroke.Transparency = 0.35
+	stroke.Parent = frame
+	return stroke
+end
+
+function UIKit.label(
+	parent: Instance,
+	name: string,
+	text: string,
+	size: UDim2,
+	position: UDim2?,
+	anchor: Vector2?,
+	color: Color3?,
+	bold: boolean?,
+	alignment: Enum.TextXAlignment?
+): TextLabel
+	local label = Instance.new("TextLabel")
+	label.Name = name
+	label.Size = size
+	label.Position = position or UDim2.new(0, 0, 0, 0)
+	label.AnchorPoint = anchor or Vector2.new(0, 0)
+	label.BackgroundTransparency = 1
+	label.Text = text
+	label.TextColor3 = color or Color3.fromRGB(235, 238, 245)
+	label.TextSize = 18
+	label.Font = if bold then FONT_BOLD else FONT
+	label.TextXAlignment = alignment or Enum.TextXAlignment.Left
+	label.TextYAlignment = Enum.TextYAlignment.Center
+	label.TextWrapped = true
+	label.Parent = parent
+	return label
+end
+
+-- Barra con relleno: devuelve el frame raíz y el relleno para poder actualizarlo sin
+-- volver a buscar por nombre en cada frame.
+function UIKit.bar(
+	parent: Instance,
+	name: string,
+	height: number,
+	color: Color3
+): { Root: Frame, Fill: Frame }
+	local root = UIKit.frame(
+		parent,
+		name,
+		UDim2.new(1, 0, 0, height),
+		UDim2.new(0, 0, 0, 0),
+		nil,
+		Color3.fromRGB(30, 32, 40)
+	)
+	UIKit.corner(root, UDim.new(1, 0))
+
+	local fill = UIKit.frame(root, "Fill", UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), nil, color)
+	UIKit.corner(fill, UDim.new(1, 0))
+	return { Root = root, Fill = fill }
+end
+
+return UIKit
+]]></string>
+            </Properties>
+          </Item>
+        </Item>
+        <Item class="Folder" referent="86">
+          <Properties>
+            <string name="Name">VFX</string>
+          </Properties>
+          <Item class="ModuleScript" referent="87">
+            <Properties>
+              <string name="Name">CombatFeedback</string>
+              <string name="Source"><![CDATA[--!strict
+-- Feedback visual de combate. Vive en el cliente a propósito: el servidor ya decidió
+-- el impacto y solo manda un aviso descartable. Los emisores y los rayos están en pool
+-- y se reciclan con un reloj, así que un impacto no crea ni destruye instancias ni
+-- lanza una tarea por evento.
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UIKit = require(script.Parent.Parent.UI.UIKit)
+
+local POOL_SIZE = 14
+local BEAM_POOL_SIZE = 12
+local BUSY_SECONDS = 0.6
+local BEAM_BUSY_SECONDS = 0.16
+
+type Burst = {
+	Part: Part,
+	Emitter: ParticleEmitter,
+	BusyUntil: number,
+}
+
+type Beam = {
+	Part: Part,
+	BusyUntil: number,
+}
+
+local bursts: { Burst } = {}
+local beams: { Beam } = {}
+local flash: Frame? = nil
+local flashTween: Tween? = nil
+
+local function buildBurst(color: Color3): Burst
+	local part = Instance.new("Part")
+	part.Size = Vector3.new(1, 1, 1)
+	part.Transparency = 1
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanTouch = false
+	part.CanQuery = false
+	part.Parent = workspace
+
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Rate = 0
+	emitter.Lifetime = NumberRange.new(0.3, 0.55)
+	emitter.Speed = NumberRange.new(6, 13)
+	emitter.SpreadAngle = Vector2.new(180, 180)
+	emitter.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.5),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	emitter.Color = ColorSequence.new(color)
+	emitter.LightEmission = 0.6
+	emitter.Parent = part
+
+	return { Part = part, Emitter = emitter, BusyUntil = 0 }
+end
+
+local function buildBeam(): Beam
+	local part = Instance.new("Part")
+	part.Name = "ChainBeam"
+	part.Material = Enum.Material.Neon
+	part.Color = Color3.fromRGB(150, 226, 255)
+	part.Transparency = 1
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanTouch = false
+	part.CanQuery = false
+	part.CastShadow = false
+	return { Part = part, BusyUntil = 0 }
+end
+
+local CombatFeedback = {}
+
+function CombatFeedback.build()
+	for index = 1, POOL_SIZE do
+		bursts[index] = buildBurst(Color3.fromRGB(255, 236, 190))
+	end
+	for index = 1, BEAM_POOL_SIZE do
+		beams[index] = buildBeam()
+	end
+
+	local gui = UIKit.screen("CombatFeedback", 25)
+	gui.IgnoreGuiInset = true
+	gui.DisplayOrder = 25
+	flash = UIKit.frame(
+		gui,
+		"Flash",
+		UDim2.new(1, 0, 1, 0),
+		UDim2.new(0, 0, 0, 0),
+		nil,
+		Color3.fromRGB(200, 40, 40)
+	)
+	flash.BackgroundTransparency = 1
+
+	RunService.RenderStepped:Connect(function()
+		local now = os.clock()
+		for _, burst in bursts do
+			if burst.BusyUntil > 0 and now >= burst.BusyUntil then
+				burst.BusyUntil = 0
+				burst.Part.Transparency = 1
+			end
+		end
+		for _, beam in beams do
+			if beam.BusyUntil > 0 and now >= beam.BusyUntil then
+				beam.BusyUntil = 0
+				beam.Part.Transparency = 1
+			end
+		end
+	end)
+end
+
+local function emit(position: Vector3, count: number, color: Color3)
+	local now = os.clock()
+	for _, burst in bursts do
+		if burst.BusyUntil <= now then
+			burst.BusyUntil = now + BUSY_SECONDS
+			burst.Part.CFrame = CFrame.new(position)
+			burst.Emitter.Color = ColorSequence.new(color)
+			burst.Emitter:Emit(count)
+			return
+		end
+	end
+end
+
+-- Rayo entre dos puntos del salto de la cadena. La pieza se estira a lo largo de Z y
+-- se orienta con lookAt, así que el grosor y la longitud son el mismo CFrame.
+local function beamBetween(from: Vector3, to: Vector3)
+	local delta = to - from
+	local length = delta.Magnitude
+	if length < 0.05 then
+		return
+	end
+
+	local now = os.clock()
+	for _, beam in beams do
+		if beam.BusyUntil <= now then
+			beam.BusyUntil = now + BEAM_BUSY_SECONDS
+			beam.Part.Size = Vector3.new(0.35, 0.35, length)
+			beam.Part.CFrame = CFrame.lookAt(from, to)
+			beam.Part.Transparency = 0.15
+			return
+		end
+	end
+end
+
+local function playFlash()
+	if not flash then
+		return
+	end
+	if flashTween then
+		flashTween:Cancel()
+	end
+	flash.BackgroundTransparency = 0.55
+	flashTween = TweenService:Create(
+		flash,
+		TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		{ BackgroundTransparency = 1 }
+	)
+	flashTween:Play()
+end
+
+local BOLT = Color3.fromRGB(255, 246, 220)
+local CRIT = Color3.fromRGB(255, 208, 96)
+local DEATH = Color3.fromRGB(226, 96, 96)
+local BLAST = Color3.fromRGB(255, 158, 66)
+local NOVA = Color3.fromRGB(126, 208, 255)
+
+-- El servidor manda `magnitude` como radios o conteos segun el tipo; el cliente solo
+-- decide como se ve. `target` solo lo usan los efectos que unen dos puntos.
+function CombatFeedback.play(kind: string, position: Vector3, magnitude: number, target: Vector3?)
+	if kind == "hit" then
+		local crit = magnitude > 1
+		emit(position, if crit then 10 else 5, if crit then CRIT else BOLT)
+	elseif kind == "death" then
+		emit(position, 16, DEATH)
+	elseif kind == "explosion" then
+		local scale = math.clamp(magnitude / 8, 0.6, 2)
+		emit(position, math.round(18 * scale), BLAST)
+	elseif kind == "nova" then
+		local scale = math.clamp(magnitude / 8, 0.6, 2)
+		emit(position, math.round(14 * scale), NOVA)
+	elseif kind == "chain" then
+		emit(position, 5, Color3.fromRGB(150, 226, 255))
+		if target then
+			beamBetween(position, target)
+		end
+	elseif kind == "playerHurt" then
+		playFlash()
+	end
+end
+
+return CombatFeedback
+]]></string>
+            </Properties>
+          </Item>
+        </Item>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="Workspace" referent="88">
+    <Properties>
+      <string name="Name">Workspace</string>
+      <bool name="NeedsPivotMigration">false</bool>
+    </Properties>
+    <Item class="Part" referent="89">
+      <Properties>
+        <string name="Name">Baseplate</string>
+        <bool name="Anchored">true</bool>
+        <token name="BottomSurface">0</token>
+        <Color3uint8 name="Color3uint8">4869980</Color3uint8>
+        <bool name="Locked">true</bool>
+        <token name="Material">800</token>
+        <Vector3 name="Position">
+          <X>0</X>
+          <Y>-5</Y>
+          <Z>0</Z>
+        </Vector3>
+        <Vector3 name="size">
+          <X>256</X>
+          <Y>10</Y>
+          <Z>256</Z>
+        </Vector3>
+        <token name="TopSurface">0</token>
+      </Properties>
+    </Item>
+    <Item class="SpawnLocation" referent="90">
+      <Properties>
+        <string name="Name">SpawnLocation</string>
+        <bool name="Anchored">true</bool>
+        <Color3uint8 name="Color3uint8">16711935</Color3uint8>
+        <int name="Duration">10</int>
+        <bool name="Enabled">true</bool>
+        <bool name="Neutral">true</bool>
+        <Vector3 name="Position">
+          <X>0</X>
+          <Y>0.5</Y>
+          <Z>0</Z>
+        </Vector3>
+        <Vector3 name="size">
+          <X>12</X>
+          <Y>1</Y>
+          <Z>12</Z>
+        </Vector3>
+      </Properties>
+    </Item>
+  </Item>
+</roblox>
