@@ -39,13 +39,37 @@
           "Locked": true,
           "Position": [
             0,
-            -10,
+            -5,
             0
           ],
           "Size": [
-            512,
-            20,
-            512
+            256,
+            10,
+            256
+          ]
+        }
+      },
+      "SpawnLocation": {
+        "$className": "SpawnLocation",
+        "$properties": {
+          "Anchored": true,
+          "Neutral": true,
+          "Enabled": true,
+          "Duration": 10,
+          "Size": [
+            12,
+            1,
+            12
+          ],
+          "Color": [
+            1,
+            0,
+            1
+          ],
+          "Position": [
+            0,
+            0.5,
+            0
           ]
         }
       }
