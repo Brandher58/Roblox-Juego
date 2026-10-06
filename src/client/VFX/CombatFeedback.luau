@@ -65,6 +65,7 @@ local function buildBeam(): Beam
 	part.CanTouch = false
 	part.CanQuery = false
 	part.CastShadow = false
+	part.Parent = workspace
 	return { Part = part, BusyUntil = 0 }
 end
 

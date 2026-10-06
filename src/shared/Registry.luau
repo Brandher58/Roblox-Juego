@@ -106,6 +106,21 @@ local function validateModifiers(source: string, modifiers: { Types.StatModifier
 	end
 end
 
+local VALID_UPGRADE_KINDS: { [string]: boolean } = {
+	NewWeapon = true,
+	WeaponUpgrade = true,
+	Stat = true,
+	Passive = true,
+}
+
+local VALID_BEHAVIORS: { [string]: boolean } = {
+	Projectile = true,
+	Nova = true,
+	Chain = true,
+	Bomb = true,
+	Orbit = true,
+}
+
 local Weapons = indexById(weaponList, "Weapons")
 local Enemies = indexById(enemyList, "Enemies")
 local Upgrades = indexById(upgradeList, "Upgrades")
@@ -124,6 +139,9 @@ for _, weapon in weaponList do
 	if (base.Damage or 0) <= 0 or (base.AttackSpeed or 0) <= 0 then
 		error(`[Registry] arma {weapon.Id} necesita Damage y AttackSpeed base`)
 	end
+	if not VALID_BEHAVIORS[weapon.Behavior] then
+		error(`[Registry] arma {weapon.Id} tiene un comportamiento desconocido {weapon.Behavior}`)
+	end
 end
 
 for _, enemy in enemyList do
@@ -135,6 +153,9 @@ end
 for _, upgrade in upgradeList do
 	if upgrade.MaxLevel < 1 or upgrade.Weight <= 0 then
 		error(`[Registry] mejora {upgrade.Id} con MaxLevel o Weight inválidos`)
+	end
+	if not VALID_UPGRADE_KINDS[upgrade.Kind] then
+		error(`[Registry] mejora {upgrade.Id} con Kind inválido {tostring(upgrade.Kind)}`)
 	end
 	if not Rarity.BaseWeight[upgrade.Rarity] then
 		error(`[Registry] mejora {upgrade.Id} con rareza desconocida {tostring(upgrade.Rarity)}`)

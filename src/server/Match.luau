@@ -189,7 +189,8 @@ end
 function Match.stopRun(final: MatchState, now: number)
 	clearWorld()
 	if final == "Defeat" or final == "Victory" then
-		resultsEndsAt = now + Config.Run.DefeatDuration
+		local duration = if final == "Victory" then Config.Run.VictoryDuration else Config.Run.DefeatDuration
+		resultsEndsAt = now + duration
 	end
 	Match.setState(final)
 end

@@ -67,7 +67,12 @@
       <Properties>
         <string name="Name">Shared</string>
       </Properties>
-      <Item class="ModuleScript" referent="10">
+      <Item class="Folder" referent="10">
+        <Properties>
+          <string name="Name">Assets</string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="11">
         <Properties>
           <string name="Name">Config</string>
           <string name="Source"><![CDATA[--!strict
@@ -115,6 +120,7 @@ Config.PlayerBaseStats = {
 Config.Run = {
 	LevelUpTimeout = 15,
 	DefeatDuration = 6,
+	VictoryDuration = 6,
 	EnemySpawnGrace = 1,
 	-- Objetivo de la Fase 1: sobrevivir este tiempo da la victoria. En la Fase 2 este
 	-- mismo reloj pasa a ser el disparador del jefe, así que el final de partida ya
@@ -146,6 +152,7 @@ Config.Scaling = {
 	HealthPerMinute = 0.55,
 	SpeedPerMinute = 0.035,
 	MaxSpeedMultiplier = 1.45,
+	DamagePerMinute = 0.25,
 }
 
 --Proyectiles del vertical slice.
@@ -205,15 +212,15 @@ return Config
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="11">
+      <Item class="Folder" referent="12">
         <Properties>
           <string name="Name">Definitions</string>
         </Properties>
-        <Item class="Folder" referent="12">
+        <Item class="Folder" referent="13">
           <Properties>
             <string name="Name">Enemies</string>
           </Properties>
-          <Item class="ModuleScript" referent="13">
+          <Item class="ModuleScript" referent="14">
             <Properties>
               <string name="Name">Basic</string>
               <string name="Source"><![CDATA[--!strict
@@ -237,11 +244,11 @@ return definition
             </Properties>
           </Item>
         </Item>
-        <Item class="Folder" referent="14">
+        <Item class="Folder" referent="15">
           <Properties>
             <string name="Name">Upgrades</string>
           </Properties>
-          <Item class="ModuleScript" referent="15">
+          <Item class="ModuleScript" referent="16">
             <Properties>
               <string name="Name">BombDamage</string>
               <string name="Source"><![CDATA[--!strict
@@ -266,7 +273,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="16">
+          <Item class="ModuleScript" referent="17">
             <Properties>
               <string name="Name">BombUnlock</string>
               <string name="Source"><![CDATA[--!strict
@@ -291,7 +298,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="17">
+          <Item class="ModuleScript" referent="18">
             <Properties>
               <string name="Name">ChainDamage</string>
               <string name="Source"><![CDATA[--!strict
@@ -316,7 +323,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="18">
+          <Item class="ModuleScript" referent="19">
             <Properties>
               <string name="Name">ChainUnlock</string>
               <string name="Source"><![CDATA[--!strict
@@ -342,7 +349,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="19">
+          <Item class="ModuleScript" referent="20">
             <Properties>
               <string name="Name">GunAttackSpeed</string>
               <string name="Source"><![CDATA[--!strict
@@ -366,7 +373,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="20">
+          <Item class="ModuleScript" referent="21">
             <Properties>
               <string name="Name">GunDamage</string>
               <string name="Source"><![CDATA[--!strict
@@ -390,7 +397,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="21">
+          <Item class="ModuleScript" referent="22">
             <Properties>
               <string name="Name">NovaDamage</string>
               <string name="Source"><![CDATA[--!strict
@@ -416,7 +423,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="22">
+          <Item class="ModuleScript" referent="23">
             <Properties>
               <string name="Name">NovaUnlock</string>
               <string name="Source"><![CDATA[--!strict
@@ -441,7 +448,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="23">
+          <Item class="ModuleScript" referent="24">
             <Properties>
               <string name="Name">OrbitDamage</string>
               <string name="Source"><![CDATA[--!strict
@@ -466,7 +473,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="24">
+          <Item class="ModuleScript" referent="25">
             <Properties>
               <string name="Name">OrbitUnlock</string>
               <string name="Source"><![CDATA[--!strict
@@ -491,7 +498,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="25">
+          <Item class="ModuleScript" referent="26">
             <Properties>
               <string name="Name">ShotgunDamage</string>
               <string name="Source"><![CDATA[--!strict
@@ -516,7 +523,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="26">
+          <Item class="ModuleScript" referent="27">
             <Properties>
               <string name="Name">ShotgunUnlock</string>
               <string name="Source"><![CDATA[--!strict
@@ -542,7 +549,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="27">
+          <Item class="ModuleScript" referent="28">
             <Properties>
               <string name="Name">Vitality</string>
               <string name="Source"><![CDATA[--!strict
@@ -566,11 +573,11 @@ return definition
             </Properties>
           </Item>
         </Item>
-        <Item class="Folder" referent="28">
+        <Item class="Folder" referent="29">
           <Properties>
             <string name="Name">Weapons</string>
           </Properties>
-          <Item class="ModuleScript" referent="29">
+          <Item class="ModuleScript" referent="30">
             <Properties>
               <string name="Name">Bomb</string>
               <string name="Source"><![CDATA[--!strict
@@ -625,7 +632,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="30">
+          <Item class="ModuleScript" referent="31">
             <Properties>
               <string name="Name">Chain</string>
               <string name="Source"><![CDATA[--!strict
@@ -678,7 +685,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="31">
+          <Item class="ModuleScript" referent="32">
             <Properties>
               <string name="Name">Gun</string>
               <string name="Source"><![CDATA[--!strict
@@ -730,7 +737,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="32">
+          <Item class="ModuleScript" referent="33">
             <Properties>
               <string name="Name">Nova</string>
               <string name="Source"><![CDATA[--!strict
@@ -790,7 +797,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="33">
+          <Item class="ModuleScript" referent="34">
             <Properties>
               <string name="Name">Orbit</string>
               <string name="Source"><![CDATA[--!strict
@@ -847,7 +854,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="34">
+          <Item class="ModuleScript" referent="35">
             <Properties>
               <string name="Name">Shotgun</string>
               <string name="Source"><![CDATA[--!strict
@@ -900,7 +907,50 @@ return definition
           </Item>
         </Item>
       </Item>
-      <Item class="ModuleScript" referent="35">
+      <Item class="ModuleScript" referent="36">
+        <Properties>
+          <string name="Name">GameAssets</string>
+          <string name="Source"><![CDATA[--!strict
+-- Encuentra visuales de armas cargados por el usuario.
+-- Coloca los modelos de Roblox Assets en:
+--   ReplicatedStorage → Shared → Assets → (Blade.rbx, Bomb.rbx, Projectile.rbx, …)
+-- Si un modelo no existe, el juego vuelve al Part de reserva: no se rompe nada.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+
+local GameAssets = {}
+
+local function getFolder(): Folder?
+	local assets = Shared:FindFirstChild("Assets")
+	return if assets and assets:IsA("Folder") then assets else nil
+end
+
+-- Devuelve una copia de una pieza de modelo cualquiera que exista dentro de
+-- Shared/Assets con el nombre indicado. Devuelve nil si no hay nada con ese nombre.
+function GameAssets.find(name: string): Instance?
+	local assets = getFolder()
+	if not assets then
+		return nil
+	end
+	return assets:FindFirstChild(name)
+end
+
+-- Misma idea pero obligada a ser una BasePart (MeshPart o Part). Perfecta para
+-- proyectiles y miradas de OrbitBlades porque son BasePart que el resto del código
+-- ya mueve con CFrame.
+function GameAssets.findPart(name: string): BasePart?
+	local obj = GameAssets.find(name)
+	if obj and obj:IsA("BasePart") then
+		return obj :: BasePart
+	end
+	return nil
+end
+
+return GameAssets
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="37">
         <Properties>
           <string name="Name">Progression</string>
           <string name="Source"><![CDATA[--!strict
@@ -948,7 +998,7 @@ return Progression
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="36">
+      <Item class="ModuleScript" referent="38">
         <Properties>
           <string name="Name">Rarity</string>
           <string name="Source"><![CDATA[--!strict
@@ -1008,7 +1058,7 @@ return Rarity
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="37">
+      <Item class="ModuleScript" referent="39">
         <Properties>
           <string name="Name">Registry</string>
           <string name="Source"><![CDATA[--!strict
@@ -1119,6 +1169,21 @@ local function validateModifiers(source: string, modifiers: { Types.StatModifier
 	end
 end
 
+local VALID_UPGRADE_KINDS: { [string]: boolean } = {
+	NewWeapon = true,
+	WeaponUpgrade = true,
+	Stat = true,
+	Passive = true,
+}
+
+local VALID_BEHAVIORS: { [string]: boolean } = {
+	Projectile = true,
+	Nova = true,
+	Chain = true,
+	Bomb = true,
+	Orbit = true,
+}
+
 local Weapons = indexById(weaponList, "Weapons")
 local Enemies = indexById(enemyList, "Enemies")
 local Upgrades = indexById(upgradeList, "Upgrades")
@@ -1137,6 +1202,9 @@ for _, weapon in weaponList do
 	if (base.Damage or 0) <= 0 or (base.AttackSpeed or 0) <= 0 then
 		error(`[Registry] arma {weapon.Id} necesita Damage y AttackSpeed base`)
 	end
+	if not VALID_BEHAVIORS[weapon.Behavior] then
+		error(`[Registry] arma {weapon.Id} tiene un comportamiento desconocido {weapon.Behavior}`)
+	end
 end
 
 for _, enemy in enemyList do
@@ -1148,6 +1216,9 @@ end
 for _, upgrade in upgradeList do
 	if upgrade.MaxLevel < 1 or upgrade.Weight <= 0 then
 		error(`[Registry] mejora {upgrade.Id} con MaxLevel o Weight inválidos`)
+	end
+	if not VALID_UPGRADE_KINDS[upgrade.Kind] then
+		error(`[Registry] mejora {upgrade.Id} con Kind inválido {tostring(upgrade.Kind)}`)
 	end
 	if not Rarity.BaseWeight[upgrade.Rarity] then
 		error(`[Registry] mejora {upgrade.Id} con rareza desconocida {tostring(upgrade.Rarity)}`)
@@ -1184,7 +1255,7 @@ return {
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="38">
+      <Item class="ModuleScript" referent="40">
         <Properties>
           <string name="Name">Remotes</string>
           <string name="Source"><![CDATA[--!strict
@@ -1228,7 +1299,7 @@ return {
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="39">
+      <Item class="ModuleScript" referent="41">
         <Properties>
           <string name="Name">StatMath</string>
           <string name="Source"><![CDATA[--!strict
@@ -1324,7 +1395,7 @@ return StatMath
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="40">
+      <Item class="ModuleScript" referent="42">
         <Properties>
           <string name="Name">Types</string>
           <string name="Source"><![CDATA[--!strict
@@ -1495,7 +1566,7 @@ return {}
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="41">
+      <Item class="ModuleScript" referent="43">
         <Properties>
           <string name="Name">UpgradeOffers</string>
           <string name="Source"><![CDATA[--!strict
@@ -1670,11 +1741,11 @@ return Offers
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="42">
+      <Item class="Folder" referent="44">
         <Properties>
           <string name="Name">Utilities</string>
         </Properties>
-        <Item class="ModuleScript" referent="43">
+        <Item class="ModuleScript" referent="45">
           <Properties>
             <string name="Name">Format</string>
             <string name="Source"><![CDATA[--!strict
@@ -1700,19 +1771,19 @@ return Format
       </Item>
     </Item>
   </Item>
-  <Item class="ServerScriptService" referent="44">
+  <Item class="ServerScriptService" referent="46">
     <Properties>
       <string name="Name">ServerScriptService</string>
     </Properties>
-    <Item class="Folder" referent="45">
+    <Item class="Folder" referent="47">
       <Properties>
         <string name="Name">Server</string>
       </Properties>
-      <Item class="Folder" referent="46">
+      <Item class="Folder" referent="48">
         <Properties>
           <string name="Name">Combat</string>
         </Properties>
-        <Item class="ModuleScript" referent="47">
+        <Item class="ModuleScript" referent="49">
           <Properties>
             <string name="Name">OrbitBlades</string>
             <string name="Source"><![CDATA[--!strict
@@ -1725,6 +1796,7 @@ return Format
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
+local GameAssets = require(Shared:WaitForChild("GameAssets"))
 local Pool = require(script.Parent.Parent.Utility.Pool)
 local EnemyRegistry = require(script.Parent.Parent.Enemies.EnemyRegistry)
 local PlayerAvatar = require(script.Parent.Parent.PlayerAvatar)
@@ -1753,6 +1825,13 @@ local container: Folder = nil
 local pool: Pool.Pooled = nil
 
 local function buildTemplate(): Part
+	-- El usuario puede sustituir una Part de reserva por un modelo. Si Shared/Assets
+	-- contiene "Blade", ese modelo se usa; si no, se cae a un Part neon básico.
+	local fromAssets = GameAssets.findPart("Blade")
+	if fromAssets then
+		return fromAssets:Clone()
+	end
+
 	local part = Instance.new("Part")
 	part.Name = "Blade"
 	part.Size = Config.Orbit.BladeSize
@@ -1900,7 +1979,7 @@ return OrbitBlades
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="48">
+        <Item class="ModuleScript" referent="50">
           <Properties>
             <string name="Name">Projectiles</string>
             <string name="Source"><![CDATA[--!strict
@@ -1910,6 +1989,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
+local GameAssets = require(Shared:WaitForChild("GameAssets"))
 local Pool = require(script.Parent.Parent.Utility.Pool)
 local EnemyRegistry = require(script.Parent.Parent.Enemies.EnemyRegistry)
 
@@ -1940,6 +2020,13 @@ local container: Folder = nil
 local pool: Pool.Pooled = nil
 
 local function buildTemplate(): Part
+	-- Los visuales de proyectil son modulares: si hay un modelo con nombre "Projectile"
+	-- en Shared/Assets, ese modelo se usa; si no, un Part neon básico.
+	local fromAssets = GameAssets.findPart("Projectile")
+	if fromAssets then
+		return fromAssets:Clone()
+	end
+
 	local part = Instance.new("Part")
 	part.Name = "Projectile"
 	part.Shape = Enum.PartType.Ball
@@ -2162,7 +2249,7 @@ return Projectiles
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="49">
+        <Item class="ModuleScript" referent="51">
           <Properties>
             <string name="Name">WeaponBehaviors</string>
             <string name="Source"><![CDATA[--!strict
@@ -2381,7 +2468,7 @@ return {
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="50">
+        <Item class="ModuleScript" referent="52">
           <Properties>
             <string name="Name">WeaponRuntime</string>
             <string name="Source"><![CDATA[--!strict
@@ -2507,11 +2594,11 @@ return WeaponRuntime
           </Properties>
         </Item>
       </Item>
-      <Item class="Folder" referent="51">
+      <Item class="Folder" referent="53">
         <Properties>
           <string name="Name">Data</string>
         </Properties>
-        <Item class="ModuleScript" referent="52">
+        <Item class="ModuleScript" referent="54">
           <Properties>
             <string name="Name">MetaData</string>
             <string name="Source"><![CDATA[--!strict
@@ -2564,11 +2651,11 @@ return MetaData
           </Properties>
         </Item>
       </Item>
-      <Item class="Folder" referent="53">
+      <Item class="Folder" referent="55">
         <Properties>
           <string name="Name">Enemies</string>
         </Properties>
-        <Item class="ModuleScript" referent="54">
+        <Item class="ModuleScript" referent="56">
           <Properties>
             <string name="Name">EnemyAI</string>
             <string name="Source"><![CDATA[--!strict
@@ -2752,7 +2839,7 @@ return EnemyAI
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="55">
+        <Item class="ModuleScript" referent="57">
           <Properties>
             <string name="Name">EnemyRegistry</string>
             <string name="Source"><![CDATA[--!strict
@@ -2764,10 +2851,11 @@ local Config = require(Shared:WaitForChild("Config"))
 local Registry = require(Shared:WaitForChild("Registry"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Types = require(Shared:WaitForChild("Types"))
+local GameAssets = require(Shared:WaitForChild("GameAssets"))
 local Pool = require(script.Parent.Parent.Utility.Pool)
 local Grid = require(script.Parent.SpatialGrid)
 local XPPickups = require(script.Parent.Parent.Pickups.XPPickups)
-local InsertService = game:GetService("InsertService")
+local ProceduralEnemies = require(script.Parent.ProceduralEnemies)
 
 type EnemyDefinition = Types.EnemyDefinition
 
@@ -2800,18 +2888,67 @@ export type Enemy = {
 export type Scaling = {
 	health: number,
 	speed: number,
+	damage: number,
 }
 
 local container: Folder = nil
 local pool: Pool.Pooled = nil
-local assetPools: { [number]: Pool.Pooled } = {}
 local grid: Grid.Grid = nil
 local enemies: { Enemy } = {}
 local nextId = 0
 
+local BasicDefinition: Types.EnemyDefinition? = nil
+pcall(function()
+	BasicDefinition = Registry.Enemies["basic"]
+end)
+
+-- Proxy seguro: si el archivo de definición no existe devuelve un definition de basic.
+local function DefinitionBasicProxy(): Types.EnemyDefinition
+	if BasicDefinition then
+		return BasicDefinition
+	end
+	return {
+		Id = "basic",
+		Name = "Crawler",
+		Health = 34,
+		Speed = 10.5,
+		Damage = 6,
+		AttackInterval = 1,
+		AttackRange = 3.4,
+		XPReward = 4,
+		Size = 2.6,
+		AttackType = "Contact",
+		Tags = { "melee" },
+	}
+end
+
 local function buildTemplate(): Model
+	-- Plantilla por defecto: se basa en el id del enemigo si está definido, y si no
+	-- en una esfera de tamaño medio y rojo oscuro.
+	return ProceduralEnemies.make(DefinitionBasicProxy())
+end
+
+-- Prepara el modelo que vive en Shared/Assets para este tipo de enemigo. El nombre
+-- del asset debe coincidir con el id de la definición: basic → "basic.rbx", tank →
+-- "tank.rbx", etc. Si no existe ese nombre, se devuelve nile y se usa la esfera de
+-- reserva sin tocar nada.
+local function buildAssetTemplate(assetName: string): Model?
+	local part = GameAssets.findPart(assetName)
+	if not part then
+		return nil
+	end
+
 	local model = Instance.new("Model")
 	model.Name = "Enemy"
+
+	local body = part:Clone()
+	body.Name = "Body"
+	body.Anchored = true
+	body.CanCollide = false
+	body.CanQuery = false
+	body.CanTouch = false
+	body.Massless = true
+	body.Parent = model
 
 	local root = Instance.new("Part")
 	root.Name = "Root"
@@ -2824,60 +2961,7 @@ local function buildTemplate(): Model
 	root.Massless = true
 	root.Parent = model
 
-	local body = Instance.new("Part")
-	body.Name = "Body"
-	body.Shape = Enum.PartType.Ball
-	body.Anchored = true
-	body.CanCollide = false
-	body.CanQuery = false
-	body.CanTouch = false
-	body.Parent = model
-
 	model.PrimaryPart = root
-	return model
-end
-
--- Prepara un modelo del Store como template del pool: anclado, sin colisiones y
--- con un PrimaryPart uniforme. Si no se puede cargar, devuelve la esfera de reserva.
-local function buildAssetTemplate(assetId: number): Model
-	local ok, asset = pcall(function()
-		return InsertService:LoadAsset(assetId)
-	end)
-	if not ok or not asset then
-		warn(`[EnemyRegistry] no se pudo cargar el asset {assetId}: {asset}`)
-		return buildTemplate()
-	end
-
-	local source = asset:FindFirstChildWhichIsA("Model") or asset
-	local model = source:Clone()
-	model.Name = "Enemy"
-	for _, child in model:GetDescendants() do
-		if child:IsA("BasePart") then
-			child.Anchored = true
-			child.CanCollide = false
-			child.CanQuery = false
-			child.CanTouch = false
-			child.CastShadow = false
-			child.Massless = true
-		elseif child:IsA("Script") or child:IsA("LocalScript") then
-			child:Destroy()
-		end
-	end
-
-	local root = model:FindFirstChild("Root") or model:FindFirstChild("HumanoidRootPart")
-	if not root then
-		root = Instance.new("Part")
-		root.Size = Vector3.new(2, 2, 2)
-		root.Transparency = 1
-		root.Anchored = true
-		root.CanCollide = false
-		root.CanQuery = false
-		root.CanTouch = false
-		root.Massless = true
-	end
-	root.Name = "Root"
-	(root :: Instance).Parent = model
-	model.PrimaryPart = root :: BasePart
 	return model
 end
 
@@ -2896,17 +2980,18 @@ end
 
 -- Versión de pool para los enemigos que llevan asset: se crea perezoso y sigue
 -- existiendo todo lo que dure la sesión.
+local poolForByDef: { [string]: Pool.Pooled } = {}
+
 local function poolFor(definitionId: string): Pool.Pooled
-	local visuals = Config.EnemyVisuals[definitionId]
-	if not visuals or not visuals.AssetId then
+	if poolForByDef[definitionId] then
+		return poolForByDef[definitionId]
+	end
+	local template = buildAssetTemplate(definitionId)
+	if not template then
 		return pool
 	end
-	local cached = assetPools[visuals.AssetId]
-	if cached then
-		return cached
-	end
-	cached = Pool.new(buildAssetTemplate(visuals.AssetId), 12)
-	assetPools[visuals.AssetId] = cached
+	local cached = Pool.new(template, 12)
+	poolForByDef[definitionId] = cached
 	return cached
 end
 
@@ -2964,8 +3049,8 @@ function EnemyRegistry.spawn(definitionId: string, position: Vector3, scaling: S
 	local visuals = Config.EnemyVisuals[definitionId] or {}
 	local size = definition.Size
 	local health = definition.Health * scaling.health
-	local useAsset = visuals.AssetId ~= nil
 	local assetPool = poolFor(definitionId)
+	local useAsset = assetPool ~= pool
 
 	local acquired, lease = assetPool:Get(function(instance)
 		local model = instance :: Model
@@ -3010,7 +3095,7 @@ function EnemyRegistry.spawn(definitionId: string, position: Vector3, scaling: S
 		Health = health,
 		MaxHealth = health,
 		Speed = definition.Speed * scaling.speed,
-		Damage = definition.Damage,
+		Damage = definition.Damage * scaling.damage,
 		AttackInterval = definition.AttackInterval,
 		AttackRange = definition.AttackRange,
 		Position = clamped,
@@ -3038,6 +3123,16 @@ function EnemyRegistry.damage(enemy: Enemy, amount: number, isCrit: boolean?): b
 	local center = enemy.Position + Vector3.new(0, 1, 0)
 	Remotes.CombatEffect:FireAllClients("hit", center, if isCrit then 2 else 1)
 
+	-- Flash de daño: cambia el color del cuerpo a blanco y lo restaura en unos
+	-- frames. Si no hay fire al recibir hit, no hay confirmación visual de daño.
+	local bodyColor = enemy.Body.Color
+	enemy.Body.Color = Color3.fromRGB(255, 255, 255)
+	task.delay(0.08, function()
+		if enemy.Body then
+			enemy.Body.Color = bodyColor
+		end
+	end)
+
 	if enemy.Health > 0 then
 		return false
 	end
@@ -3051,12 +3146,7 @@ function EnemyRegistry.damage(enemy: Enemy, amount: number, isCrit: boolean?): b
 	last.Slot = slot
 	table.remove(enemies)
 	if enemy.IsAsset then
-		local assetPool = assetPools[Config.EnemyVisuals[enemy.Definition.Id].AssetId]
-		if assetPool then
-			assetPool:Release(enemy.Model, enemy.Lease)
-		else
-			pool:Release(enemy.Model, enemy.Lease)
-		end
+		poolFor(enemy.Definition.Id):Release(enemy.Model, enemy.Lease)
 	else
 		pool:Release(enemy.Model, enemy.Lease)
 	end
@@ -3069,12 +3159,7 @@ function EnemyRegistry.clearAll()
 		local enemy = enemies[index]
 		enemy.Alive = false
 		if enemy.IsAsset then
-			local assetPool = assetPools[Config.EnemyVisuals[enemy.Definition.Id].AssetId]
-			if assetPool then
-				assetPool:Release(enemy.Model, enemy.Lease)
-			else
-				pool:Release(enemy.Model, enemy.Lease)
-			end
+			poolFor(enemy.Definition.Id):Release(enemy.Model, enemy.Lease)
 		else
 			pool:Release(enemy.Model, enemy.Lease)
 		end
@@ -3086,7 +3171,69 @@ return EnemyRegistry
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="56">
+        <Item class="ModuleScript" referent="58">
+          <Properties>
+            <string name="Name">ProceduralEnemies</string>
+            <string name="Source"><![CDATA[--!strict
+-- Plantilla de enemigos procedurales: no dependen de 107ignore o de un asset del
+-- store. El servidor clona el resultado como modelo visual básico.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Types = require(Shared:WaitForChild("Types"))
+
+type EnemyDefinition = Types.EnemyDefinition
+
+local P = {}
+
+-- Fabricacion de un enemy mínimo: Root invisible + Body con el tamaño/color del
+-- definition. Sirve para cualquier clase de enemigo y se adapta a su Config.
+function P.makeBasicBody(definition: EnemyDefinition, color: Color3): Model
+	local model = Instance.new("Model")
+	model.Name = `Enemy_{definition.Id}`
+
+	local root = Instance.new("Part")
+	root.Name = "Root"
+	root.Size = Vector3.new(1.6, 1.6, 1.6)
+	root.Transparency = 1
+	root.Anchored = true
+	root.CanCollide = false
+	root.CanQuery = false
+	root.CanTouch = false
+	root.Massless = true
+	root.Parent = model
+
+	local size = definition.Size
+	local body = Instance.new("Part")
+	body.Name = "Body"
+	body.Shape = Enum.PartType.Ball
+	body.Size = Vector3.new(size, size, size)
+	body.Color = color
+	body.Material = Enum.Material.Neon
+	body.Anchored = true
+	body.CanCollide = false
+	body.CanQuery = false
+	body.CanTouch = false
+	body.Massless = true
+	body.Parent = model
+
+	model.PrimaryPart = root
+	return model
+end
+
+-- Mezcla de formas según el id para que (por ahora) cada enemigo se vea diferente
+-- sin assets externos.
+function P.make(definition: EnemyDefinition): Model
+	local visuals = Config.EnemyVisuals[definition.Id] or {}
+	local color = visuals.Color or Color3.fromRGB(214, 79, 79)
+	return P.makeBasicBody(definition, color)
+end
+
+return P
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="59">
           <Properties>
             <string name="Name">SpatialGrid</string>
             <string name="Source"><![CDATA[--!strict
@@ -3162,7 +3309,7 @@ return Grid
           </Properties>
         </Item>
       </Item>
-      <Item class="ModuleScript" referent="57">
+      <Item class="ModuleScript" referent="60">
         <Properties>
           <string name="Name">GameLoop</string>
           <string name="Source"><![CDATA[--!strict
@@ -3225,7 +3372,7 @@ return GameLoop
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="58">
+      <Item class="Script" referent="61">
         <Properties>
           <string name="Name">Main</string>
           <token name="RunContext">0</token>
@@ -3317,7 +3464,7 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="59">
+      <Item class="ModuleScript" referent="62">
         <Properties>
           <string name="Name">Match</string>
           <string name="Source"><![CDATA[--!strict
@@ -3511,7 +3658,8 @@ end
 function Match.stopRun(final: MatchState, now: number)
 	clearWorld()
 	if final == "Defeat" or final == "Victory" then
-		resultsEndsAt = now + Config.Run.DefeatDuration
+		local duration = if final == "Victory" then Config.Run.VictoryDuration else Config.Run.DefeatDuration
+		resultsEndsAt = now + duration
 	end
 	Match.setState(final)
 end
@@ -3663,11 +3811,11 @@ return Match
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="60">
+      <Item class="Folder" referent="63">
         <Properties>
           <string name="Name">Pickups</string>
         </Properties>
-        <Item class="ModuleScript" referent="61">
+        <Item class="ModuleScript" referent="64">
           <Properties>
             <string name="Name">XPPickups</string>
             <string name="Source"><![CDATA[--!strict
@@ -3902,7 +4050,7 @@ return XPPickups
           </Properties>
         </Item>
       </Item>
-      <Item class="ModuleScript" referent="62">
+      <Item class="ModuleScript" referent="65">
         <Properties>
           <string name="Name">PlayerAvatar</string>
           <string name="Source"><![CDATA[--!strict
@@ -4001,11 +4149,11 @@ return PlayerAvatar
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="63">
+      <Item class="Folder" referent="66">
         <Properties>
           <string name="Name">Progression</string>
         </Properties>
-        <Item class="ModuleScript" referent="64">
+        <Item class="ModuleScript" referent="67">
           <Properties>
             <string name="Name">LevelUp</string>
             <string name="Source"><![CDATA[--!strict
@@ -4103,7 +4251,7 @@ return LevelUp
           </Properties>
         </Item>
       </Item>
-      <Item class="ModuleScript" referent="65">
+      <Item class="ModuleScript" referent="68">
         <Properties>
           <string name="Name">Run</string>
           <string name="Source"><![CDATA[--!strict
@@ -4184,11 +4332,11 @@ return Run
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="66">
+      <Item class="Folder" referent="69">
         <Properties>
           <string name="Name">Spawning</string>
         </Properties>
-        <Item class="ModuleScript" referent="67">
+        <Item class="ModuleScript" referent="70">
           <Properties>
             <string name="Name">Difficulty</string>
             <string name="Source"><![CDATA[--!strict
@@ -4201,6 +4349,7 @@ local Config = require(Shared:WaitForChild("Config"))
 export type Profile = {
 	health: number,
 	speed: number,
+	damage: number,
 	spawnInterval: number,
 	batchSize: number,
 	maxAlive: number,
@@ -4213,6 +4362,7 @@ function Difficulty.evaluate(elapsedSeconds: number): Profile
 	return {
 		health = 1 + minutes * Config.Scaling.HealthPerMinute,
 		speed = math.min(Config.Scaling.MaxSpeedMultiplier, 1 + minutes * Config.Scaling.SpeedPerMinute),
+		damage = 1 + minutes * Config.Scaling.DamagePerMinute,
 		spawnInterval = math.max(
 			Config.Spawn.MinInterval,
 			Config.Spawn.BaseInterval - minutes * Config.Spawn.IntervalDecayPerMinute
@@ -4229,7 +4379,7 @@ return Difficulty
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="68">
+        <Item class="ModuleScript" referent="71">
           <Properties>
             <string name="Name">EnemySpawner</string>
             <string name="Source"><![CDATA[--!strict
@@ -4322,7 +4472,7 @@ return EnemySpawner
           </Properties>
         </Item>
       </Item>
-      <Item class="ModuleScript" referent="69">
+      <Item class="ModuleScript" referent="72">
         <Properties>
           <string name="Name">Stats</string>
           <string name="Source"><![CDATA[--!strict
@@ -4456,11 +4606,11 @@ return Stats
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="70">
+      <Item class="Folder" referent="73">
         <Properties>
           <string name="Name">Utility</string>
         </Properties>
-        <Item class="ModuleScript" referent="71">
+        <Item class="ModuleScript" referent="74">
           <Properties>
             <string name="Name">Pool</string>
             <string name="Source"><![CDATA[--!strict
@@ -4536,28 +4686,28 @@ return Pool
       </Item>
     </Item>
   </Item>
-  <Item class="SoundService" referent="72">
+  <Item class="SoundService" referent="75">
     <Properties>
       <string name="Name">SoundService</string>
     </Properties>
   </Item>
-  <Item class="StarterPlayer" referent="73">
+  <Item class="StarterPlayer" referent="76">
     <Properties>
       <string name="Name">StarterPlayer</string>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="74">
+    <Item class="StarterPlayerScripts" referent="77">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="75">
+      <Item class="Folder" referent="78">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="Folder" referent="76">
+        <Item class="Folder" referent="79">
           <Properties>
             <string name="Name">Camera</string>
           </Properties>
-          <Item class="ModuleScript" referent="77">
+          <Item class="ModuleScript" referent="80">
             <Properties>
               <string name="Name">TopDownCamera</string>
               <string name="Source"><![CDATA[--!strict
@@ -4619,11 +4769,11 @@ return TopDownCamera
             </Properties>
           </Item>
         </Item>
-        <Item class="Folder" referent="78">
+        <Item class="Folder" referent="81">
           <Properties>
             <string name="Name">Input</string>
           </Properties>
-          <Item class="ModuleScript" referent="79">
+          <Item class="ModuleScript" referent="82">
             <Properties>
               <string name="Name">RunInput</string>
               <string name="Source"><![CDATA[--!strict
@@ -4661,7 +4811,7 @@ return RunInput
             </Properties>
           </Item>
         </Item>
-        <Item class="LocalScript" referent="80">
+        <Item class="LocalScript" referent="83">
           <Properties>
             <string name="Name">Main</string>
             <string name="Source"><![CDATA[--!strict
@@ -4733,11 +4883,11 @@ Remotes.ClientReady:FireServer()
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="81">
+        <Item class="Folder" referent="84">
           <Properties>
             <string name="Name">UI</string>
           </Properties>
-          <Item class="ModuleScript" referent="82">
+          <Item class="ModuleScript" referent="85">
             <Properties>
               <string name="Name">Hud</string>
               <string name="Source"><![CDATA[--!strict
@@ -4954,7 +5104,7 @@ return Hud
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="83">
+          <Item class="ModuleScript" referent="86">
             <Properties>
               <string name="Name">LevelUpPanel</string>
               <string name="Source"><![CDATA[--!strict
@@ -5233,7 +5383,7 @@ return LevelUpPanel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="84">
+          <Item class="ModuleScript" referent="87">
             <Properties>
               <string name="Name">ResultPanel</string>
               <string name="Source"><![CDATA[--!strict
@@ -5312,7 +5462,7 @@ return ResultPanel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="85">
+          <Item class="ModuleScript" referent="88">
             <Properties>
               <string name="Name">UIKit</string>
               <string name="Source"><![CDATA[--!strict
@@ -5444,11 +5594,11 @@ return UIKit
             </Properties>
           </Item>
         </Item>
-        <Item class="Folder" referent="86">
+        <Item class="Folder" referent="89">
           <Properties>
             <string name="Name">VFX</string>
           </Properties>
-          <Item class="ModuleScript" referent="87">
+          <Item class="ModuleScript" referent="90">
             <Properties>
               <string name="Name">CombatFeedback</string>
               <string name="Source"><![CDATA[--!strict
@@ -5518,6 +5668,7 @@ local function buildBeam(): Beam
 	part.CanTouch = false
 	part.CanQuery = false
 	part.CastShadow = false
+	part.Parent = workspace
 	return { Part = part, BusyUntil = 0 }
 end
 
@@ -5649,12 +5800,12 @@ return CombatFeedback
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="88">
+  <Item class="Workspace" referent="91">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
     </Properties>
-    <Item class="Part" referent="89">
+    <Item class="Part" referent="92">
       <Properties>
         <string name="Name">Baseplate</string>
         <bool name="Anchored">true</bool>
@@ -5675,7 +5826,7 @@ return CombatFeedback
         <token name="TopSurface">0</token>
       </Properties>
     </Item>
-    <Item class="SpawnLocation" referent="90">
+    <Item class="SpawnLocation" referent="93">
       <Properties>
         <string name="Name">SpawnLocation</string>
         <bool name="Anchored">true</bool>

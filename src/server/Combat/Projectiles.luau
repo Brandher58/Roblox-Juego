@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
+local GameAssets = require(Shared:WaitForChild("GameAssets"))
 local Pool = require(script.Parent.Parent.Utility.Pool)
 local EnemyRegistry = require(script.Parent.Parent.Enemies.EnemyRegistry)
 
@@ -35,6 +36,13 @@ local container: Folder = nil
 local pool: Pool.Pooled = nil
 
 local function buildTemplate(): Part
+	-- Los visuales de proyectil son modulares: si hay un modelo con nombre "Projectile"
+	-- en Shared/Assets, ese modelo se usa; si no, un Part neon básico.
+	local fromAssets = GameAssets.findPart("Projectile")
+	if fromAssets then
+		return fromAssets:Clone()
+	end
+
 	local part = Instance.new("Part")
 	part.Name = "Projectile"
 	part.Shape = Enum.PartType.Ball

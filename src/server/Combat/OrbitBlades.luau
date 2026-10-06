@@ -8,6 +8,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
+local GameAssets = require(Shared:WaitForChild("GameAssets"))
 local Pool = require(script.Parent.Parent.Utility.Pool)
 local EnemyRegistry = require(script.Parent.Parent.Enemies.EnemyRegistry)
 local PlayerAvatar = require(script.Parent.Parent.PlayerAvatar)
@@ -36,6 +37,13 @@ local container: Folder = nil
 local pool: Pool.Pooled = nil
 
 local function buildTemplate(): Part
+	-- El usuario puede sustituir una Part de reserva por un modelo. Si Shared/Assets
+	-- contiene "Blade", ese modelo se usa; si no, se cae a un Part neon básico.
+	local fromAssets = GameAssets.findPart("Blade")
+	if fromAssets then
+		return fromAssets:Clone()
+	end
+
 	local part = Instance.new("Part")
 	part.Name = "Blade"
 	part.Size = Config.Orbit.BladeSize

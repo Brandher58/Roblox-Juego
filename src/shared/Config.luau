@@ -43,6 +43,7 @@ Config.PlayerBaseStats = {
 Config.Run = {
 	LevelUpTimeout = 15,
 	DefeatDuration = 6,
+	VictoryDuration = 6,
 	EnemySpawnGrace = 1,
 	-- Objetivo de la Fase 1: sobrevivir este tiempo da la victoria. En la Fase 2 este
 	-- mismo reloj pasa a ser el disparador del jefe, así que el final de partida ya
@@ -74,6 +75,7 @@ Config.Scaling = {
 	HealthPerMinute = 0.55,
 	SpeedPerMinute = 0.035,
 	MaxSpeedMultiplier = 1.45,
+	DamagePerMinute = 0.25,
 }
 
 --Proyectiles del vertical slice.

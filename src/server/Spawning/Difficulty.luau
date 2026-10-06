@@ -8,6 +8,7 @@ local Config = require(Shared:WaitForChild("Config"))
 export type Profile = {
 	health: number,
 	speed: number,
+	damage: number,
 	spawnInterval: number,
 	batchSize: number,
 	maxAlive: number,
@@ -20,6 +21,7 @@ function Difficulty.evaluate(elapsedSeconds: number): Profile
 	return {
 		health = 1 + minutes * Config.Scaling.HealthPerMinute,
 		speed = math.min(Config.Scaling.MaxSpeedMultiplier, 1 + minutes * Config.Scaling.SpeedPerMinute),
+		damage = 1 + minutes * Config.Scaling.DamagePerMinute,
 		spawnInterval = math.max(
 			Config.Spawn.MinInterval,
 			Config.Spawn.BaseInterval - minutes * Config.Spawn.IntervalDecayPerMinute

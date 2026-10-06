@@ -7,10 +7,11 @@ local Config = require(Shared:WaitForChild("Config"))
 local Registry = require(Shared:WaitForChild("Registry"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Types = require(Shared:WaitForChild("Types"))
+local GameAssets = require(Shared:WaitForChild("GameAssets"))
 local Pool = require(script.Parent.Parent.Utility.Pool)
 local Grid = require(script.Parent.SpatialGrid)
 local XPPickups = require(script.Parent.Parent.Pickups.XPPickups)
-local InsertService = game:GetService("InsertService")
+local ProceduralEnemies = require(script.Parent.ProceduralEnemies)
 
 type EnemyDefinition = Types.EnemyDefinition
 
@@ -43,18 +44,67 @@ export type Enemy = {
 export type Scaling = {
 	health: number,
 	speed: number,
+	damage: number,
 }
 
 local container: Folder = nil
 local pool: Pool.Pooled = nil
-local assetPools: { [number]: Pool.Pooled } = {}
 local grid: Grid.Grid = nil
 local enemies: { Enemy } = {}
 local nextId = 0
 
+local BasicDefinition: Types.EnemyDefinition? = nil
+pcall(function()
+	BasicDefinition = Registry.Enemies["basic"]
+end)
+
+-- Proxy seguro: si el archivo de definición no existe devuelve un definition de basic.
+local function DefinitionBasicProxy(): Types.EnemyDefinition
+	if BasicDefinition then
+		return BasicDefinition
+	end
+	return {
+		Id = "basic",
+		Name = "Crawler",
+		Health = 34,
+		Speed = 10.5,
+		Damage = 6,
+		AttackInterval = 1,
+		AttackRange = 3.4,
+		XPReward = 4,
+		Size = 2.6,
+		AttackType = "Contact",
+		Tags = { "melee" },
+	}
+end
+
 local function buildTemplate(): Model
+	-- Plantilla por defecto: se basa en el id del enemigo si está definido, y si no
+	-- en una esfera de tamaño medio y rojo oscuro.
+	return ProceduralEnemies.make(DefinitionBasicProxy())
+end
+
+-- Prepara el modelo que vive en Shared/Assets para este tipo de enemigo. El nombre
+-- del asset debe coincidir con el id de la definición: basic → "basic.rbx", tank →
+-- "tank.rbx", etc. Si no existe ese nombre, se devuelve nile y se usa la esfera de
+-- reserva sin tocar nada.
+local function buildAssetTemplate(assetName: string): Model?
+	local part = GameAssets.findPart(assetName)
+	if not part then
+		return nil
+	end
+
 	local model = Instance.new("Model")
 	model.Name = "Enemy"
+
+	local body = part:Clone()
+	body.Name = "Body"
+	body.Anchored = true
+	body.CanCollide = false
+	body.CanQuery = false
+	body.CanTouch = false
+	body.Massless = true
+	body.Parent = model
 
 	local root = Instance.new("Part")
 	root.Name = "Root"
@@ -67,60 +117,7 @@ local function buildTemplate(): Model
 	root.Massless = true
 	root.Parent = model
 
-	local body = Instance.new("Part")
-	body.Name = "Body"
-	body.Shape = Enum.PartType.Ball
-	body.Anchored = true
-	body.CanCollide = false
-	body.CanQuery = false
-	body.CanTouch = false
-	body.Parent = model
-
 	model.PrimaryPart = root
-	return model
-end
-
--- Prepara un modelo del Store como template del pool: anclado, sin colisiones y
--- con un PrimaryPart uniforme. Si no se puede cargar, devuelve la esfera de reserva.
-local function buildAssetTemplate(assetId: number): Model
-	local ok, asset = pcall(function()
-		return InsertService:LoadAsset(assetId)
-	end)
-	if not ok or not asset then
-		warn(`[EnemyRegistry] no se pudo cargar el asset {assetId}: {asset}`)
-		return buildTemplate()
-	end
-
-	local source = asset:FindFirstChildWhichIsA("Model") or asset
-	local model = source:Clone()
-	model.Name = "Enemy"
-	for _, child in model:GetDescendants() do
-		if child:IsA("BasePart") then
-			child.Anchored = true
-			child.CanCollide = false
-			child.CanQuery = false
-			child.CanTouch = false
-			child.CastShadow = false
-			child.Massless = true
-		elseif child:IsA("Script") or child:IsA("LocalScript") then
-			child:Destroy()
-		end
-	end
-
-	local root = model:FindFirstChild("Root") or model:FindFirstChild("HumanoidRootPart")
-	if not root then
-		root = Instance.new("Part")
-		root.Size = Vector3.new(2, 2, 2)
-		root.Transparency = 1
-		root.Anchored = true
-		root.CanCollide = false
-		root.CanQuery = false
-		root.CanTouch = false
-		root.Massless = true
-	end
-	root.Name = "Root"
-	(root :: Instance).Parent = model
-	model.PrimaryPart = root :: BasePart
 	return model
 end
 
@@ -139,17 +136,18 @@ end
 
 -- Versión de pool para los enemigos que llevan asset: se crea perezoso y sigue
 -- existiendo todo lo que dure la sesión.
+local poolForByDef: { [string]: Pool.Pooled } = {}
+
 local function poolFor(definitionId: string): Pool.Pooled
-	local visuals = Config.EnemyVisuals[definitionId]
-	if not visuals or not visuals.AssetId then
+	if poolForByDef[definitionId] then
+		return poolForByDef[definitionId]
+	end
+	local template = buildAssetTemplate(definitionId)
+	if not template then
 		return pool
 	end
-	local cached = assetPools[visuals.AssetId]
-	if cached then
-		return cached
-	end
-	cached = Pool.new(buildAssetTemplate(visuals.AssetId), 12)
-	assetPools[visuals.AssetId] = cached
+	local cached = Pool.new(template, 12)
+	poolForByDef[definitionId] = cached
 	return cached
 end
 
@@ -207,8 +205,8 @@ function EnemyRegistry.spawn(definitionId: string, position: Vector3, scaling: S
 	local visuals = Config.EnemyVisuals[definitionId] or {}
 	local size = definition.Size
 	local health = definition.Health * scaling.health
-	local useAsset = visuals.AssetId ~= nil
 	local assetPool = poolFor(definitionId)
+	local useAsset = assetPool ~= pool
 
 	local acquired, lease = assetPool:Get(function(instance)
 		local model = instance :: Model
@@ -253,7 +251,7 @@ function EnemyRegistry.spawn(definitionId: string, position: Vector3, scaling: S
 		Health = health,
 		MaxHealth = health,
 		Speed = definition.Speed * scaling.speed,
-		Damage = definition.Damage,
+		Damage = definition.Damage * scaling.damage,
 		AttackInterval = definition.AttackInterval,
 		AttackRange = definition.AttackRange,
 		Position = clamped,
@@ -281,6 +279,16 @@ function EnemyRegistry.damage(enemy: Enemy, amount: number, isCrit: boolean?): b
 	local center = enemy.Position + Vector3.new(0, 1, 0)
 	Remotes.CombatEffect:FireAllClients("hit", center, if isCrit then 2 else 1)
 
+	-- Flash de daño: cambia el color del cuerpo a blanco y lo restaura en unos
+	-- frames. Si no hay fire al recibir hit, no hay confirmación visual de daño.
+	local bodyColor = enemy.Body.Color
+	enemy.Body.Color = Color3.fromRGB(255, 255, 255)
+	task.delay(0.08, function()
+		if enemy.Body then
+			enemy.Body.Color = bodyColor
+		end
+	end)
+
 	if enemy.Health > 0 then
 		return false
 	end
@@ -294,12 +302,7 @@ function EnemyRegistry.damage(enemy: Enemy, amount: number, isCrit: boolean?): b
 	last.Slot = slot
 	table.remove(enemies)
 	if enemy.IsAsset then
-		local assetPool = assetPools[Config.EnemyVisuals[enemy.Definition.Id].AssetId]
-		if assetPool then
-			assetPool:Release(enemy.Model, enemy.Lease)
-		else
-			pool:Release(enemy.Model, enemy.Lease)
-		end
+		poolFor(enemy.Definition.Id):Release(enemy.Model, enemy.Lease)
 	else
 		pool:Release(enemy.Model, enemy.Lease)
 	end
@@ -312,12 +315,7 @@ function EnemyRegistry.clearAll()
 		local enemy = enemies[index]
 		enemy.Alive = false
 		if enemy.IsAsset then
-			local assetPool = assetPools[Config.EnemyVisuals[enemy.Definition.Id].AssetId]
-			if assetPool then
-				assetPool:Release(enemy.Model, enemy.Lease)
-			else
-				pool:Release(enemy.Model, enemy.Lease)
-			end
+			poolFor(enemy.Definition.Id):Release(enemy.Model, enemy.Lease)
 		else
 			pool:Release(enemy.Model, enemy.Lease)
 		end
