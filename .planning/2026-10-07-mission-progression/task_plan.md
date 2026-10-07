@@ -27,10 +27,13 @@ The architecture must allow new maps, missions, objectives, bosses and rewards t
 
 All phases complete. The lobby → mission select → missions 01/02/03 → boss →
 reward → next-map unlock flow was verified end-to-end in Roblox Studio via MCP,
-with locked-mission rejection and retry-after-failure confirmed. Remaining
-follow-up (not blocking): wire `server/Data/Profile.luau` to a DataStore so
-progression survives server restarts, and add co-op verification once the match
-architecture supports multiple players.
+with locked-mission rejection and retry-after-failure confirmed. Follow-ups done:
+`server/Data/Profile.luau` is wired to a DataStore (progression survives server
+restarts, verified), the mission HUD updates live (periodic snapshot broadcast),
+a dev admin "+30 s" button fast-forwards the mission clock, and the mission
+select menu was rebuilt (no overlapping text, premium look). Remaining optional
+follow-up: co-op verification once the match architecture supports multiple
+players.
 
 ## Current Phase
 

@@ -25,7 +25,6 @@
 
 ## Todo Later
 
-- [ ] Wire `server/Data/Profile.luau` to DataStore (persist progression)
 - [ ] Move away from character auto-loads to proper matchmaking
 - [ ] Create full Map scene for `AbandonedFactory`
 - [ ] Add true random maps
@@ -39,7 +38,10 @@
 - Use existing Spawner and Enemy Registry; the Mission runtime passes spawner configs
 - The main loop stays as `Match.State`; a Mission is a runtime requested when match state transitions
 - Client only does requests; server governs
-- No DataStore wiring yet; keep current progression `Profile` interface
+- Progression persists via DataStore (`Profile`): reconciliación contra `Registry`,
+  escrituras diferidas, carga asíncrona al entrar y reenvío de la lista al terminar
+- La HUD de misión se refresca periódicamente (broadcast de snapshot cada 0.2 s)
+- Modo dev: comando admin `skip_time` adelanta el reloj y los objetivos de supervivencia
 
 ## Done
 

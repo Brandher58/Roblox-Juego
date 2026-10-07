@@ -186,3 +186,82 @@ Chronological record of work performed, files changed, validation results, and e
 ---
 
 *Update this file after completing a phase, running validation, or encountering an error.*
+
+## Session: 2026-10-06 (HUD + persistencia + menú premium + botón dev)
+
+### Fix 1 — La HUD de misión no se actualizaba en vivo
+
+- **Causa (doble):**
+  - `MissionManager.broadcastUpdate()` solo se enviaba en transiciones (start, boss,
+    complete/fail, selección), nunca durante `Active`: la HUD quedaba congelada en la
+    instantánea inicial.
+  - La place abierta en Studio tenía **remotes duplicados** (`RequestMission`,
+    `MissionUpdate`, `MissionFinished`, `MissionList` ×2): el servidor disparaba en una
+    instancia y el cliente escuchaba en la otra → los eventos de misión no llegaban.
+    (El source es limpio: `default.project.json` y `rojo build` los generan una sola vez.)
+- **Fix:**
+  - `MissionManager.update` reenvía el snapshot periódicamente (intervalo 0.2 s, igual
+    que el HUD general) mientras la misión está `Active`.
+  - Se eliminaron los 4 duplicados de `ReplicatedStorage.Remotes` en la place en vivo.
+- **Verificado:** HUD del cliente hace tick sola (`0:47 → 0:49`, `47/300 → 49/300`)
+  sin ninguna interacción.
+
+### Fix 2 — Botón dev "+30 s" (Admin)
+
+- **Causa:** no existía forma de adelantar el reloj de partida para probar fases tardías.
+- **Fix:** comando admin `skip_time` (solo Studio, en `Admin.init`):
+  - `Match.advanceTime(seconds)`: `elapsed += seconds` + broadcast (el spawner, la
+    dificultad y el boss ven el nuevo reloj al instante).
+  - `MissionManager.skipTime(seconds)`: adelanta los objetivos `Survive` (genérico a
+    runtimes, sin rama por misión).
+  - Botón en `AdminMenu` (`MAIN_BUTTONS = 5`): `"+30 s"` → `skip_time` 30.
+- **Verificado:** desde el cliente `AdminCommand:FireServer("skip_time", 30)` →
+  reloj `0:07 → 0:37`, objetivo `7/300 → 37/300` en la HUD.
+
+### Fix 3 — Persistencia de progreso (DataStore)
+
+- **Causa:** `Profile` era solo de sesión; al reiniciar se perdía lo completado.
+- **Fix:** `src/server/Data/Profile.luau` ahora:
+  - Carga asíncrona por jugador (DataStore `MissionProgress`/`v1`, key = UserId),
+    reconciliada contra `Registry` (solo IDs conocidos, moneda saneada y clampada).
+  - Escrituras diferidas con debounce (4 s) en cada mutación; guardado en
+    `PlayerRemoving` y `BindToClose` a modo de red de seguridad.
+  - `Profile.onLoaded` → `Main.server` reenvía la lista al terminar de cargar.
+  - En Studio sin "Studio Access to API Services" degrada a sesión y avisa.
+- **Verificado:** completar misión 01 → `completed01` y `unlocked02` en el DataStore;
+  reiniciar el servidor (nuevo playtest) → `Completed`, `Available`, moneda y mapas
+  cargados desde el DataStore.
+
+### Fix 4 — Menú de selección de misión (rediseño premium)
+
+- **Causa:** layout con tamaños en porcentaje dentro de las tarjetas; la descripción
+  (`1,-70`) desbordaba la tarjeta y pisaba recompensas y botón; el meta se entraba en
+  el título.
+- **Fix:** `MissionPanel` reconstruido: alturas de fila calculadas en píxeles y
+  apiladas (strip de acento, título + píldora de estado, meta, objetivos, descripción,
+  divisor, recompensas, pie con botón/pista), `ClipsDescendants`, hover en disponibles,
+  panel 760×600 con gradiente y borde dorado.
+- **Verificado:** geometría absoluta de las 5 tarjetas sin solapamientos (chequeo
+  programático de rects en el cliente).
+
+## Test Results
+
+| Test | Input | Expected | Actual | Status |
+|------|-------|----------|--------|--------|
+| StyLua | `stylua src` | no diffs | clean | ✅ |
+| Selene | `selene src` | 0 errores/avisos | 0/0, 0 parse errors | ✅ |
+| Headless | `lune run src/tests/headless.luau` | all pass | 2109/2109 | ✅ |
+| Build | `rojo build --output "Juego-Fase1.rbxlx"` | builds | built | ✅ |
+| HUD live | misión 01 activa, esperar 1.2 s | clock/objetivos avanzan solos | `0:47 → 0:49`, `47/300 → 49/300` | ✅ |
+| skip_time | `AdminCommand:FireServer("skip_time", 30)` | reloj +30, objetivo +30 | `0:07 → 0:37`, `7/300 → 37/300` | ✅ |
+| Persistencia | completar 01, reiniciar servidor | 01 Completed, 02 unlocked al entrar | `completed01`, `unlocked02`, moneda 1150, mapa factory cargados | ✅ |
+| Remotes duplicados | contar `Remotes` en la place | sin duplicados | 4 eliminados, todos únicos | ✅ |
+| Menú | geometry de tarjetas en cliente | sin solapes | 4 tarjetas, filas apiladas, sin intersección | ✅ |
+| Botón admin | lista de botones en `AdminMenu` | "+30 s" presente | `skip_time` "+30 s" | ✅ |
+
+## Error Log
+
+| Timestamp | Error | Attempt | Resolution |
+|-----------|-------|---------|------------|
+| 2026-10-06 | HUD sin datos pese al nuevo broadcast | 1 | Diagnóstico con marcador: remotes duplicados en la place; dedupe en vivo |
+| 2026-10-06 | Playtest "ends" / roles no presentes por momentos | 1 | Parpadeo del MCP y playtests del usuario; reintentar tras `solo_playtest status` |

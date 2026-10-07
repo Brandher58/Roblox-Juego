@@ -18,7 +18,7 @@ local AdminMenu = {}
 local ROW = 28
 local GAP = 4
 local TITLE_HEIGHT = 34
-local MAIN_BUTTONS = 4
+local MAIN_BUTTONS = 5
 local PANEL_WIDTH = 310
 local PANEL_HEIGHT = 560
 
@@ -157,6 +157,7 @@ function AdminMenu.build()
 	mainButton(bar, TITLE_HEIGHT + (ROW + GAP), "Armas y mejoras al tope", "max_all")
 	mainButton(bar, TITLE_HEIGHT + (ROW + GAP) * 2, "+500 XP", "grant_xp", 500)
 	mainButton(bar, TITLE_HEIGHT + (ROW + GAP) * 3, "Curar", "heal")
+	mainButton(bar, TITLE_HEIGHT + (ROW + GAP) * 4, "+30 s", "skip_time", 30)
 
 	-- Lista desplazable de armas y mejoras.
 	local list = Instance.new("ScrollingFrame")

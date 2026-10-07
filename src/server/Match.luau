@@ -96,6 +96,13 @@ function Match.setAutoVictory(enabled: boolean)
 	autoVictory = enabled
 end
 
+-- Dev (playtest): adelanta el reloj de partida sin tocar el estado. El spawner y
+-- las misiones ven el nuevo `elapsed` al instante (más presión, boss antes).
+function Match.advanceTime(seconds: number)
+	elapsed += seconds
+	Match.broadcast()
+end
+
 local function clearWorld()
 	EnemyRegistry.clearAll()
 	Projectiles.clearAll()

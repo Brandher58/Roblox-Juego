@@ -37,6 +37,11 @@ export type Execution = {
 local current: Execution? = nil
 local lastResult: MissionResult? = nil
 
+-- La HUD de misión se refresca con la misma cadencia que el HUD general: reloj,
+-- objetivos y jefe no pueden quedarse congelados en la instantánea inicial.
+local SNAPSHOT_INTERVAL = 0.2
+local snapshotClock = 0
+
 local MissionManager = {}
 
 -- El evento de muerte llega una sola vez para todos: se reenvía a los objetivos de la
@@ -282,6 +287,7 @@ function MissionManager.requestStart(player: Player, missionId: unknown): (boole
 	}
 	current = execution
 	lastResult = nil
+	snapshotClock = 0
 
 	-- La configuración llega al spawner antes de que arranque la partida, para que la
 	-- primera oleada ya sea la de la misión.
@@ -301,6 +307,7 @@ function MissionManager.update(dt: number, now: number)
 		return
 	end
 
+	snapshotClock += dt
 	local elapsed = Match.getElapsed()
 	ObjectiveSystem.update(execution.objectives, dt)
 
@@ -311,9 +318,35 @@ function MissionManager.update(dt: number, now: number)
 		MissionManager.broadcastUpdate()
 	end
 
+	-- Actualización periódica: el reloj y los objetivos avanzan en el servidor y la
+	-- HUD tiene que reflejarlo, no solo la instantánea del arranque.
+	if snapshotClock >= SNAPSHOT_INTERVAL then
+		snapshotClock = 0
+		MissionManager.broadcastUpdate()
+	end
+
 	if ObjectiveSystem.allComplete(execution.objectives) then
 		MissionManager.complete(now)
 	end
+end
+
+-- Dev (playtest): adelanta los objetivos que corren por reloj (Survive) para probar
+-- fases tardías sin esperar. `Match.advanceTime` hace lo mismo con el reloj de
+-- partida; este método es un accesorio del admin, no parte del contrato definitivo.
+function MissionManager.skipTime(seconds: number): boolean
+	local execution = current
+	if not execution or execution.state ~= "Active" then
+		return false
+	end
+	for _, runtime in execution.objectives do
+		if runtime.Definition.Type == "Survive" then
+			local next = math.min(runtime.Required, runtime.Current + seconds)
+			runtime.Current = next
+			runtime.Complete = next >= runtime.Required
+		end
+	end
+	MissionManager.broadcastUpdate()
+	return true
 end
 
 function MissionManager.isActive(): boolean

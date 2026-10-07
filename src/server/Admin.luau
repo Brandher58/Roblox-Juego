@@ -16,6 +16,7 @@ local Stats = require(script.Parent.Stats)
 local PlayerAvatar = require(script.Parent.PlayerAvatar)
 local Match = require(script.Parent.Match)
 local WeaponRuntime = require(script.Parent.Combat.WeaponRuntime)
+local MissionManager = require(script.Parent.Missions.MissionManager)
 
 type RunState = Run.Run
 
@@ -83,6 +84,15 @@ local function handle(player: Player, command: unknown, value: unknown): boolean
 			return false
 		end
 		state.upgradeLevels[value] = math.min((state.upgradeLevels[value] or 0) + 1, upgrade.MaxLevel)
+	elseif command == "skip_time" then
+		-- Dev: adelanta el reloj de partida y los objetivos de supervivencia para
+		-- probar fases tardías del mapa sin esperar.
+		if typeof(value) ~= "number" or value <= 0 or value > 600 then
+			return false
+		end
+		Match.advanceTime(value)
+		MissionManager.skipTime(value)
+		return true
 	elseif command == "heal" then
 		heal(player)
 	else

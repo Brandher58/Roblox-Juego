@@ -55,6 +55,13 @@ Match.onStateChanged(function(state)
 	end
 end)
 
+-- Cuando el progreso (DataStore) termina de cargar, la lista de misiones se reenvía:
+-- el estado que se pintó al entrar (todo bloqueado) puede no ser el real.
+Profile.onLoaded(function(player)
+	MissionManager.sendList(player)
+	MissionManager.sendUpdate(player)
+end)
+
 -- El servidor no emite nada por evento hasta que el cliente confirma que ya tiene
 -- sus listeners registrados: asi una carta de nivel que llega durante el arranque no
 -- se pierde.
@@ -107,6 +114,7 @@ local function onPlayerAdded(player: Player)
 	else
 		ensureCharacter(player, os.clock())
 	end
+	Profile.load(player)
 	MissionManager.sendList(player)
 	MissionManager.sendUpdate(player)
 end
