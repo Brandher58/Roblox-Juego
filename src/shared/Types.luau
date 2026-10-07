@@ -158,7 +158,134 @@ export type RunSnapshot = {
 	PickupRadius: number,
 }
 
-export type MatchState = "Lobby" | "Starting" | "Playing" | "LevelUp" | "Event" | "Boss" | "Victory" | "Defeat"
+export type MatchState =
+	"Lobby"
+	| "Starting"
+	| "Playing"
+	| "LevelUp"
+	| "Event"
+	| "Boss"
+	| "MissionSelect"
+	| "Victory"
+	| "Defeat"
+
+-- Un mapa es geometría + puntos de interés declarados con números planos, para que
+-- el registro de contenido se pueda validar headless (sin la API de Roblox).
+export type MapDefinition = {
+	Id: string,
+	DisplayName: string,
+	Description: string?,
+	Arena: { HalfExtent: number, FloorY: number },
+	PlayerSpawn: { X: number, Y: number, Z: number },
+	SpawnZones: { { Name: string, X: number, Y: number, Z: number, Radius: number } },
+}
+
+export type MissionObjectiveType = "Survive" | "KillEnemy" | "KillElite" | "DefeatBoss"
+
+export type MissionObjective = {
+	Type: MissionObjectiveType,
+	Duration: number?,
+	TargetId: string?,
+	Amount: number?,
+}
+
+export type MissionState =
+	"Locked"
+	| "Available"
+	| "Preparing"
+	| "Active"
+	| "Completing"
+	| "Completed"
+	| "Failed"
+
+export type EnemyConfiguration = {
+	[string]: { Enabled: boolean, Weight: number },
+}
+
+-- Global difficulty traits specific to a mission. The Spawner uses them.
+export type MissionDifficulty = {
+	EnemyHealthMultiplier: number,
+	EnemyDamageMultiplier: number,
+	EnemySpawnRateMultiplier: number,
+	EliteChance: number?,
+}
+
+export type MissionRewards = {
+	Currency: number,
+	MissionUnlocks: { string },
+	MapUnlocks: { string },
+}
+
+export type MissionDefinition = {
+	Id: string,
+	MapId: string,
+	DisplayName: string,
+	Description: string,
+	Duration: number,
+	Objectives: { MissionObjective },
+	EnemyConfiguration: EnemyConfiguration,
+	Boss: { Id: string, SpawnAt: number? }?,
+	Rewards: MissionRewards,
+	DifficultyMultipliers: MissionDifficulty,
+}
+
+export type MapDefinitions = { [string]: MapDefinition }
+export type MissionDefinitions = { [string]: MissionDefinition }
+
+-- Vista de un objetivo concreto durante una misión. `Required` es siempre el total
+-- normalizado (1 para objetivos booleanos como derrotar al jefe), para que la UI no
+-- tenga que conocer la forma de cada tipo de objetivo.
+export type MissionObjectiveState = {
+	Type: MissionObjectiveType,
+	Label: string,
+	Current: number,
+	Required: number,
+	Complete: boolean,
+}
+
+export type MissionBossView = {
+	Id: string,
+	Name: string,
+	Active: boolean,
+	Health: number,
+	MaxHealth: number,
+}
+
+-- Instantánea autoritativa que el servidor envía al cliente mientras hay misión.
+export type MissionSnapshot = {
+	MissionId: string,
+	DisplayName: string,
+	MapId: string,
+	State: MissionState,
+	Elapsed: number,
+	Remaining: number?,
+	Objectives: { MissionObjectiveState },
+	Boss: MissionBossView?,
+}
+
+-- Resumen de misión para el panel de selección (estado por jugador incluido).
+export type MissionSummary = {
+	Id: string,
+	MapId: string,
+	MapName: string,
+	DisplayName: string,
+	Description: string,
+	Duration: number,
+	State: MissionState,
+	Objectives: { { Type: MissionObjectiveType, Label: string, Required: number } },
+	Rewards: { Currency: number, Missions: { string }, Maps: { string } },
+}
+
+export type MissionResult = {
+	MissionId: string,
+	DisplayName: string,
+	Outcome: "Completed" | "Failed",
+	Duration: number,
+	BossDefeated: boolean,
+	Currency: number,
+	UnlockedMissions: { string },
+	UnlockedMaps: { string },
+}
 
 -- Este módulo solo exporta tipos. La tabla vacía evita que el require devuelva nil y
 -- que el analizador de Studio marque los usos `Types.Algo` como acceso a nil.

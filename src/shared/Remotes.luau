@@ -38,4 +38,14 @@ return {
 	-- Cliente → servidor: comando de desarrollo (solo Studio; fuera de Studio no hay
 	-- handler). Payload: (command: string, value: unknown).
 	AdminCommand = remote("AdminCommand", "RemoteEvent") :: RemoteEvent,
+	-- Cliente → servidor: petición de empezar una misión (string missionId). El
+	-- servidor valida existencia y desbloqueo; el cliente nunca cambia de estado.
+	RequestMission = remote("RequestMission", "RemoteEvent") :: RemoteEvent,
+	-- Servidor → cliente: lista de misiones con su estado para este jugador
+	-- ({MissionSummary}).
+	MissionList = remote("MissionList", "RemoteEvent") :: RemoteEvent,
+	-- Servidor → cliente: instantánea de la misión en curso (MissionSnapshot) o nil.
+	MissionUpdate = remote("MissionUpdate", "RemoteEvent") :: RemoteEvent,
+	-- Servidor → cliente: resultado final de la misión (MissionResult).
+	MissionFinished = remote("MissionFinished", "RemoteEvent") :: RemoteEvent,
 }

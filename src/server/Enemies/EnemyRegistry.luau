@@ -53,6 +53,12 @@ local grid: Grid.Grid = nil
 local enemies: { Enemy } = {}
 local nextId = 0
 
+-- Evento de muerte. Es el único punto por el que el sistema de misiones (y cualquier
+-- objetivo) se entera de una baja sin conocer el combate: solo recibe la definición
+-- del enemigo, que es dato, no lógica.
+export type KillListener = (enemy: Enemy) -> ()
+local killListeners: { KillListener } = {}
+
 local BasicDefinition: Types.EnemyDefinition? = nil
 pcall(function()
 	BasicDefinition = Registry.Enemies["basic"]
@@ -122,6 +128,16 @@ local function buildAssetTemplate(assetName: string): Model?
 end
 
 local EnemyRegistry = {}
+
+function EnemyRegistry.onKilled(listener: KillListener): () -> ()
+	table.insert(killListeners, listener)
+	return function()
+		local index = table.find(killListeners, listener)
+		if index then
+			table.remove(killListeners, index)
+		end
+	end
+end
 
 function EnemyRegistry.init()
 	if container then
@@ -295,6 +311,12 @@ function EnemyRegistry.damage(enemy: Enemy, amount: number, isCrit: boolean?): b
 
 	enemy.Alive = false
 	Remotes.CombatEffect:FireAllClients("death", center, 1)
+
+	-- Avisa antes de devolver el modelo al pool: los listeners solo leen la
+	-- definición y el estado del enemigo, no lo retienen.
+	for _, listener in killListeners do
+		listener(enemy)
+	end
 
 	local slot = enemy.Slot
 	local last = enemies[#enemies]

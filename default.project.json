@@ -31,6 +31,18 @@
         },
         "AdminCommand": {
           "$className": "RemoteEvent"
+        },
+        "RequestMission": {
+          "$className": "RemoteEvent"
+        },
+        "MissionList": {
+          "$className": "RemoteEvent"
+        },
+        "MissionUpdate": {
+          "$className": "RemoteEvent"
+        },
+        "MissionFinished": {
+          "$className": "RemoteEvent"
         }
       }
     },

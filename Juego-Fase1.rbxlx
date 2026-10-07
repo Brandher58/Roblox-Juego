@@ -34,45 +34,70 @@
       </Properties>
       <Item class="RemoteEvent" referent="3">
         <Properties>
+          <string name="Name">AdminCommand</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="4">
+        <Properties>
           <string name="Name">ClientReady</string>
         </Properties>
       </Item>
-      <Item class="UnreliableRemoteEvent" referent="4">
+      <Item class="UnreliableRemoteEvent" referent="5">
         <Properties>
           <string name="Name">CombatEffect</string>
         </Properties>
       </Item>
-      <Item class="RemoteEvent" referent="5">
+      <Item class="RemoteEvent" referent="6">
         <Properties>
           <string name="Name">MatchStateChanged</string>
         </Properties>
       </Item>
-      <Item class="RemoteEvent" referent="6">
+      <Item class="RemoteEvent" referent="7">
+        <Properties>
+          <string name="Name">MissionFinished</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="8">
+        <Properties>
+          <string name="Name">MissionList</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="9">
+        <Properties>
+          <string name="Name">MissionUpdate</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="10">
+        <Properties>
+          <string name="Name">RequestMission</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="11">
         <Properties>
           <string name="Name">RequestUpgrade</string>
         </Properties>
       </Item>
-      <Item class="RemoteEvent" referent="7">
+      <Item class="RemoteEvent" referent="12">
         <Properties>
           <string name="Name">RunSnapshot</string>
         </Properties>
       </Item>
-      <Item class="RemoteEvent" referent="8">
+      <Item class="RemoteEvent" referent="13">
         <Properties>
           <string name="Name">UpgradeChosen</string>
         </Properties>
       </Item>
     </Item>
-    <Item class="Folder" referent="9">
+    <Item class="Folder" referent="14">
       <Properties>
         <string name="Name">Shared</string>
       </Properties>
-      <Item class="Folder" referent="10">
+      <Item class="Folder" referent="15">
         <Properties>
           <string name="Name">Assets</string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="11">
+      <Item class="ModuleScript" referent="16">
         <Properties>
           <string name="Name">Config</string>
           <string name="Source"><![CDATA[--!strict
@@ -165,19 +190,41 @@ Config.Projectile = {
 	Gravity = 46,
 	-- Un proyectil explosivo es más grande para que se vea venir.
 	BombRadius = 1.1,
+	-- Altura pico del arco (lob) de una bomba. La bomba sube y cae de verdad: la
+	-- velocidad vertical se calcula desde v² = 2·g·h, así que la altura no depende
+	-- del frame. Crece con la distancia al objetivo y con la stat Arc.
+	LobHeightMin = 3,
+	LobHeightMax = 10,
+	-- Giro de la bomba en vuelo (rad/s). Solo la explosiva gira: las balas rectas no.
+	BombSpin = 9,
+	-- Rastro de la bomba: un Trail corto y brillante que hace legible la parábola.
+	BombTrail = {
+		Length = 3.2,
+		Lifetime = 0.4,
+		LightEmission = 0.5,
+		Brightness = 2,
+	},
 }
 
 --Cuchillas orbitando al jugador. Son piezas persistentes, no disparos: giran y
 --muelen por contacto con su propio ritmo, independiente del ataque por cadencia.
 Config.Orbit = {
 	MaxBlades = 12,
-	BladeSize = Vector3.new(0.5, 0.5, 2),
-	BladeColor = Color3.fromRGB(178, 216, 255),
+	-- Más grande y más clara: desde la cámara top-down una cuchilla de 0.5 de ancho
+	-- se pierde contra el suelo. El alargado en Z es la dirección del filo.
+	BladeSize = Vector3.new(0.9, 0.9, 3.2),
+	BladeColor = Color3.fromRGB(220, 248, 255),
 	-- Radio de contacto de cada cuchilla al buscar enemigos en la rejilla.
 	ContactRadius = 1.4,
 	-- Segundos que un enemigo queda protegido tras recibir un corte. Sin esto una
 	-- cuchilla dañaría cada frame.
 	HitCooldownFloor = 0.2,
+	-- Bob vertical sutil por cuchilla: sube y baja mientras orbita para que el
+	-- enjambre no se lea como un disco perfecto y muerto.
+	BobAmount = 0.45,
+	BobSpeed = 8,
+	-- Longitud del arco de corte (slash) que dibuja el cliente al conectar.
+	SlashLength = 2.6,
 }
 
 --Cámara top-down isométrica ligera.
@@ -212,15 +259,15 @@ return Config
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="12">
+      <Item class="Folder" referent="17">
         <Properties>
           <string name="Name">Definitions</string>
         </Properties>
-        <Item class="Folder" referent="13">
+        <Item class="Folder" referent="18">
           <Properties>
             <string name="Name">Enemies</string>
           </Properties>
-          <Item class="ModuleScript" referent="14">
+          <Item class="ModuleScript" referent="19">
             <Properties>
               <string name="Name">Basic</string>
               <string name="Source"><![CDATA[--!strict
@@ -243,12 +290,298 @@ return definition
 ]]></string>
             </Properties>
           </Item>
+          <Item class="ModuleScript" referent="20">
+            <Properties>
+              <string name="Name">Elite</string>
+              <string name="Source"><![CDATA[--!strict
+
+local definition = {
+	Id = "elite",
+	Name = "Elite Shredder",
+	Health = 70,
+	Speed = 13,
+	Damage = 16,
+	AttackInterval = 1,
+	AttackRange = 3.6,
+	XPReward = 14,
+	Size = 3.0,
+	AttackType = "Contact",
+	Tags = { "melee", "elite" },
+}
+
+return definition
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="21">
+            <Properties>
+              <string name="Name">Fast</string>
+              <string name="Source"><![CDATA[--!strict
+
+local definition = {
+	Id = "fast",
+	Name = "Infernal Runner",
+	Health = 22,
+	Speed = 18,
+	Damage = 8,
+	AttackInterval = 0.8,
+	AttackRange = 3.2,
+	XPReward = 6,
+	Size = 2.4,
+	AttackType = "Contact",
+	Tags = { "melee" },
+}
+
+return definition
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="22">
+            <Properties>
+              <string name="Name">MineGuardian</string>
+              <string name="Source"><![CDATA[--!strict
+
+local definition = {
+	Id = "mine_guardian",
+	Name = "Guardian of the Mine",
+	Health = 600,
+	Speed = 8,
+	Damage = 30,
+	AttackInterval = 1.8,
+	AttackRange = 4.2,
+	XPReward = 100,
+	Size = 6.5,
+	AttackType = "Contact",
+	Tags = { "boss" },
+}
+
+return definition
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="23">
+            <Properties>
+              <string name="Name">Tank</string>
+              <string name="Source"><![CDATA[--!strict
+
+local definition = {
+	Id = "tank",
+	Name = "Iron Heavystone",
+	Health = 95,
+	Speed = 6.5,
+	Damage = 14,
+	AttackInterval = 1.4,
+	AttackRange = 3.6,
+	XPReward = 12,
+	Size = 3.8,
+	AttackType = "Contact",
+	Tags = { "melee" },
+}
+
+return definition
+]]></string>
+            </Properties>
+          </Item>
         </Item>
-        <Item class="Folder" referent="15">
+        <Item class="ModuleScript" referent="24">
+          <Properties>
+            <string name="Name">Maps</string>
+            <string name="Source"><![CDATA[--!strict
+
+-- Definiciones de mapas. Un mapa es una zona del mundo, no una partida: las misiones
+-- lo configuran, no lo duplican.
+--
+-- Los puntos se declaran con números planos (X/Y/Z) y no con `Vector3` para que el
+-- registro de contenido se pueda cargar y validar en las pruebas headless. El
+-- servidor los convierte a `Vector3` solo si los necesita.
+local Maps: {
+	[string]: {
+		Id: string,
+		DisplayName: string,
+		Description: string?,
+		Arena: { HalfExtent: number, FloorY: number },
+		PlayerSpawn: { X: number, Y: number, Z: number },
+		SpawnZones: { { Name: string, X: number, Y: number, Z: number, Radius: number } },
+	},
+} =
+	{}
+
+Maps["AbandonedMine"] = {
+	Id = "AbandonedMine",
+	DisplayName = "Abandoned Mine",
+	Description = "A dark mine with safe areas and dire rooms.",
+	Arena = { HalfExtent = 110, FloorY = 0.5 },
+	PlayerSpawn = { X = 0, Y = 4, Z = 0 },
+	SpawnZones = {
+		{ Name = "Entrance", X = 0, Y = 0, Z = 0, Radius = 20 },
+		{ Name = "BreakRoom", X = 0, Y = 0, Z = 30, Radius = 30 },
+	},
+}
+
+-- Segundo mapa: existe desde ahora para que el desbloqueo del jefe apunte a algo
+-- real. Todavía no tiene misiones propias; añadirlas es contenido nuevo, no código.
+Maps["AbandonedFactory"] = {
+	Id = "AbandonedFactory",
+	DisplayName = "Abandoned Factory",
+	Description = "The surface facility above the mine.",
+	Arena = { HalfExtent = 120, FloorY = 0.5 },
+	PlayerSpawn = { X = 0, Y = 4, Z = 0 },
+	SpawnZones = {
+		{ Name = "LoadingBay", X = 0, Y = 0, Z = 0, Radius = 24 },
+	},
+}
+
+return Maps
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="25">
+          <Properties>
+            <string name="Name">Missions</string>
+            <string name="Source"><![CDATA[--!strict
+
+-- Definiciones de misiones. Cada misión es una configuración concreta de un mapa:
+-- duración, objetivos, spawners, enemigos, boss, diff y rewards. No tiene lógica de
+-- gameplay: el sistema central de misiones la interpreta.
+local Missions: {
+	[string]: {
+		Id: string,
+		MapId: string,
+		DisplayName: string,
+		Description: string,
+		Duration: number,
+		Objectives: {
+			{
+				Type: "Survive" | "KillEnemy" | "KillElite" | "DefeatBoss",
+				Duration: number?,
+				TargetId: string?,
+				Amount: number?,
+			}
+		},
+		EnemyConfiguration: { [string]: { Enabled: boolean, Weight: number } },
+		Boss: { Id: string, SpawnAt: number? }?,
+		Rewards: { Currency: number, MissionUnlocks: { string }, MapUnlocks: { string } },
+		DifficultyMultipliers: {
+			EnemyHealthMultiplier: number,
+			EnemyDamageMultiplier: number,
+			EnemySpawnRateMultiplier: number,
+			EliteChance: number?,
+		},
+	},
+} =
+	{}
+
+Missions["AbandonedMine_01"] = {
+	Id = "AbandonedMine_01",
+	MapId = "AbandonedMine",
+	DisplayName = "First Descent",
+	Description = "Sobrevive 5 minutos en la mina.",
+	Duration = 300,
+	Objectives = {
+		{ Type = "Survive", Duration = 300 },
+	},
+	EnemyConfiguration = {
+		basic = { Enabled = true, Weight = 80 },
+		fast = { Enabled = true, Weight = 20 },
+		tank = { Enabled = false, Weight = 0 },
+		elite = { Enabled = false, Weight = 0 },
+	},
+	Boss = nil,
+	Rewards = { Currency = 100, MissionUnlocks = { "AbandonedMine_02" }, MapUnlocks = {} },
+	DifficultyMultipliers = {
+		EnemyHealthMultiplier = 1,
+		EnemyDamageMultiplier = 1,
+		EnemySpawnRateMultiplier = 1,
+		EliteChance = 0,
+	},
+}
+
+Missions["AbandonedMine_02"] = {
+	Id = "AbandonedMine_02",
+	MapId = "AbandonedMine",
+	DisplayName = "Something Is Down There",
+	Description = "Sobrevive 6 minutos y elimina al menos un enemigo de élite.",
+	Duration = 360,
+	Objectives = {
+		{ Type = "Survive", Duration = 360 },
+		{ Type = "KillElite", Amount = 1 },
+	},
+	EnemyConfiguration = {
+		basic = { Enabled = true, Weight = 70 },
+		fast = { Enabled = true, Weight = 15 },
+		tank = { Enabled = true, Weight = 10 },
+		elite = { Enabled = true, Weight = 5 },
+	},
+	Boss = nil,
+	Rewards = { Currency = 200, MissionUnlocks = { "AbandonedMine_03" }, MapUnlocks = {} },
+	DifficultyMultipliers = {
+		EnemyHealthMultiplier = 1.2,
+		EnemyDamageMultiplier = 1.1,
+		EnemySpawnRateMultiplier = 1.3,
+		EliteChance = 0.15,
+	},
+}
+
+Missions["AbandonedMine_03"] = {
+	Id = "AbandonedMine_03",
+	MapId = "AbandonedMine",
+	DisplayName = "Deep Extraction",
+	Description = "Sobrevive 8 minutos mientras aumentan las oleadas.",
+	Duration = 480,
+	Objectives = {
+		{ Type = "Survive", Duration = 480 },
+	},
+	EnemyConfiguration = {
+		basic = { Enabled = true, Weight = 55 },
+		fast = { Enabled = true, Weight = 20 },
+		tank = { Enabled = true, Weight = 15 },
+		elite = { Enabled = true, Weight = 10 },
+	},
+	Boss = nil,
+	Rewards = { Currency = 250, MissionUnlocks = { "AbandonedMine_Boss" }, MapUnlocks = {} },
+	DifficultyMultipliers = {
+		EnemyHealthMultiplier = 1.4,
+		EnemyDamageMultiplier = 1.2,
+		EnemySpawnRateMultiplier = 1.4,
+		EliteChance = 0.25,
+	},
+}
+
+Missions["AbandonedMine_Boss"] = {
+	Id = "AbandonedMine_Boss",
+	MapId = "AbandonedMine",
+	DisplayName = "Guardian of the Mine",
+	Description = "Sobrevive las oleadas de apertura y derrota al MineGuardian.",
+	Duration = 0,
+	Objectives = {
+		{ Type = "Survive", Duration = 60 },
+		{ Type = "DefeatBoss", TargetId = "mine_guardian" },
+	},
+	EnemyConfiguration = {
+		basic = { Enabled = true, Weight = 60 },
+		fast = { Enabled = true, Weight = 25 },
+		tank = { Enabled = true, Weight = 10 },
+		elite = { Enabled = true, Weight = 5 },
+	},
+	Boss = { Id = "mine_guardian", SpawnAt = 60 },
+	Rewards = { Currency = 500, MissionUnlocks = {}, MapUnlocks = { "AbandonedFactory" } },
+	DifficultyMultipliers = {
+		EnemyHealthMultiplier = 1.5,
+		EnemyDamageMultiplier = 1.3,
+		EnemySpawnRateMultiplier = 1.5,
+		EliteChance = 0.2,
+	},
+}
+
+return Missions
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="Folder" referent="26">
           <Properties>
             <string name="Name">Upgrades</string>
           </Properties>
-          <Item class="ModuleScript" referent="16">
+          <Item class="ModuleScript" referent="27">
             <Properties>
               <string name="Name">BombDamage</string>
               <string name="Source"><![CDATA[--!strict
@@ -273,7 +606,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="17">
+          <Item class="ModuleScript" referent="28">
             <Properties>
               <string name="Name">BombUnlock</string>
               <string name="Source"><![CDATA[--!strict
@@ -298,7 +631,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="18">
+          <Item class="ModuleScript" referent="29">
             <Properties>
               <string name="Name">ChainDamage</string>
               <string name="Source"><![CDATA[--!strict
@@ -323,7 +656,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="19">
+          <Item class="ModuleScript" referent="30">
             <Properties>
               <string name="Name">ChainUnlock</string>
               <string name="Source"><![CDATA[--!strict
@@ -349,7 +682,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="20">
+          <Item class="ModuleScript" referent="31">
             <Properties>
               <string name="Name">GunAttackSpeed</string>
               <string name="Source"><![CDATA[--!strict
@@ -373,7 +706,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="21">
+          <Item class="ModuleScript" referent="32">
             <Properties>
               <string name="Name">GunDamage</string>
               <string name="Source"><![CDATA[--!strict
@@ -397,7 +730,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="22">
+          <Item class="ModuleScript" referent="33">
             <Properties>
               <string name="Name">NovaDamage</string>
               <string name="Source"><![CDATA[--!strict
@@ -423,7 +756,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="23">
+          <Item class="ModuleScript" referent="34">
             <Properties>
               <string name="Name">NovaUnlock</string>
               <string name="Source"><![CDATA[--!strict
@@ -448,7 +781,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="24">
+          <Item class="ModuleScript" referent="35">
             <Properties>
               <string name="Name">OrbitDamage</string>
               <string name="Source"><![CDATA[--!strict
@@ -473,7 +806,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="25">
+          <Item class="ModuleScript" referent="36">
             <Properties>
               <string name="Name">OrbitUnlock</string>
               <string name="Source"><![CDATA[--!strict
@@ -498,7 +831,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="26">
+          <Item class="ModuleScript" referent="37">
             <Properties>
               <string name="Name">ShotgunDamage</string>
               <string name="Source"><![CDATA[--!strict
@@ -523,7 +856,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="27">
+          <Item class="ModuleScript" referent="38">
             <Properties>
               <string name="Name">ShotgunUnlock</string>
               <string name="Source"><![CDATA[--!strict
@@ -549,7 +882,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="28">
+          <Item class="ModuleScript" referent="39">
             <Properties>
               <string name="Name">Vitality</string>
               <string name="Source"><![CDATA[--!strict
@@ -573,11 +906,11 @@ return definition
             </Properties>
           </Item>
         </Item>
-        <Item class="Folder" referent="29">
+        <Item class="Folder" referent="40">
           <Properties>
             <string name="Name">Weapons</string>
           </Properties>
-          <Item class="ModuleScript" referent="30">
+          <Item class="ModuleScript" referent="41">
             <Properties>
               <string name="Name">Bomb</string>
               <string name="Source"><![CDATA[--!strict
@@ -632,7 +965,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="31">
+          <Item class="ModuleScript" referent="42">
             <Properties>
               <string name="Name">Chain</string>
               <string name="Source"><![CDATA[--!strict
@@ -685,7 +1018,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="32">
+          <Item class="ModuleScript" referent="43">
             <Properties>
               <string name="Name">Gun</string>
               <string name="Source"><![CDATA[--!strict
@@ -737,7 +1070,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="33">
+          <Item class="ModuleScript" referent="44">
             <Properties>
               <string name="Name">Nova</string>
               <string name="Source"><![CDATA[--!strict
@@ -797,7 +1130,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="34">
+          <Item class="ModuleScript" referent="45">
             <Properties>
               <string name="Name">Orbit</string>
               <string name="Source"><![CDATA[--!strict
@@ -854,7 +1187,7 @@ return definition
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="35">
+          <Item class="ModuleScript" referent="46">
             <Properties>
               <string name="Name">Shotgun</string>
               <string name="Source"><![CDATA[--!strict
@@ -907,7 +1240,7 @@ return definition
           </Item>
         </Item>
       </Item>
-      <Item class="ModuleScript" referent="36">
+      <Item class="ModuleScript" referent="47">
         <Properties>
           <string name="Name">GameAssets</string>
           <string name="Source"><![CDATA[--!strict
@@ -950,7 +1283,7 @@ return GameAssets
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="37">
+      <Item class="ModuleScript" referent="48">
         <Properties>
           <string name="Name">Progression</string>
           <string name="Source"><![CDATA[--!strict
@@ -998,7 +1331,7 @@ return Progression
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="38">
+      <Item class="ModuleScript" referent="49">
         <Properties>
           <string name="Name">Rarity</string>
           <string name="Source"><![CDATA[--!strict
@@ -1058,7 +1391,7 @@ return Rarity
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="39">
+      <Item class="ModuleScript" referent="50">
         <Properties>
           <string name="Name">Registry</string>
           <string name="Source"><![CDATA[--!strict
@@ -1070,6 +1403,8 @@ return Rarity
 -- por ruta relativa en las pruebas headless con Lune.
 local Types = require(script and script.Parent.Types or "./Types")
 local Rarity = require(script and script.Parent.Rarity or "./Rarity")
+local MapList = require(script and script.Parent.Definitions.Maps or "./Definitions/Maps")
+local MissionList = require(script and script.Parent.Definitions.Missions or "./Definitions/Missions")
 
 local weaponList = {
 	require(script and script.Parent.Definitions.Weapons.Gun or "./Definitions/Weapons/Gun"),
@@ -1082,6 +1417,12 @@ local weaponList = {
 
 local enemyList = {
 	require(script and script.Parent.Definitions.Enemies.Basic or "./Definitions/Enemies/Basic"),
+	require(script and script.Parent.Definitions.Enemies.Fast or "./Definitions/Enemies/Fast"),
+	require(script and script.Parent.Definitions.Enemies.Tank or "./Definitions/Enemies/Tank"),
+	require(script and script.Parent.Definitions.Enemies.Elite or "./Definitions/Enemies/Elite"),
+	require(
+		script and script.Parent.Definitions.Enemies.MineGuardian or "./Definitions/Enemies/MineGuardian"
+	),
 }
 
 local upgradeList = {
@@ -1184,9 +1525,52 @@ local VALID_BEHAVIORS: { [string]: boolean } = {
 	Orbit = true,
 }
 
+local VALID_OBJECTIVE_TYPES: { [string]: boolean } = {
+	Survive = true,
+	KillEnemy = true,
+	KillElite = true,
+	DefeatBoss = true,
+}
+
 local Weapons = indexById(weaponList, "Weapons")
 local Enemies = indexById(enemyList, "Enemies")
 local Upgrades = indexById(upgradeList, "Upgrades")
+
+-- Mapas y misiones se indexan desde diccionarios ya claveados por id. La clave y
+-- `Id` deben coincidir; si no, el contenido se busca por una y se encuentra por otra.
+local Maps: { [string]: Types.MapDefinition } = {}
+for id, map in MapList do
+	if Maps[id] then
+		error(`[Registry] id duplicado en Maps: {id}`)
+	end
+	if map.Id ~= id then
+		error(`[Registry] el mapa {id} declara Id "{map.Id}"`)
+	end
+	if map.Arena.HalfExtent <= 0 or map.Arena.FloorY ~= map.Arena.FloorY then
+		error(`[Registry] el mapa {id} tiene un arena inválido`)
+	end
+	if #map.SpawnZones == 0 then
+		error(`[Registry] el mapa {id} no declara ninguna zona de spawn`)
+	end
+	Maps[id] = map
+end
+
+local Missions: { [string]: Types.MissionDefinition } = {}
+for id, mission in MissionList do
+	if Missions[id] then
+		error(`[Registry] id duplicado en Missions: {id}`)
+	end
+	if mission.Id ~= id then
+		error(`[Registry] la misión {id} declara Id "{mission.Id}"`)
+	end
+	if mission.Duration < 0 then
+		error(`[Registry] la misión {id} tiene Duration negativa`)
+	end
+	if #mission.Objectives == 0 then
+		error(`[Registry] la misión {id} no declara objetivos`)
+	end
+	Missions[id] = mission
+end
 
 for _, weapon in weaponList do
 	if weapon.MaxLevel < 1 then
@@ -1246,16 +1630,83 @@ for _, weapon in weaponList do
 	end
 end
 
+-- Validación cruzada de misiones: toda referencia (mapa, enemigo, jefe, desbloqueo)
+-- tiene que existir. Un contenido roto revienta al cargar en servidor y cliente, no
+-- a mitad de una partida.
+for id, mission in Missions do
+	if not Maps[mission.MapId] then
+		error(`[Registry] la misión {id} apunta al mapa inexistente {mission.MapId}`)
+	end
+
+	for index, objective in mission.Objectives do
+		if not VALID_OBJECTIVE_TYPES[objective.Type] then
+			error(`[Registry] la misión {id} tiene un objetivo desconocido {tostring(objective.Type)}`)
+		end
+		if objective.Type == "Survive" then
+			if (objective.Duration or 0) <= 0 then
+				error(`[Registry] la misión {id} objetivo {index}: Survive necesita Duration > 0`)
+			end
+		elseif objective.Type == "KillEnemy" or objective.Type == "KillElite" then
+			if (objective.Amount or 0) < 1 then
+				error(`[Registry] la misión {id} objetivo {index}: {objective.Type} necesita Amount >= 1`)
+			end
+			if objective.Type == "KillEnemy" and objective.TargetId and not Enemies[objective.TargetId] then
+				error(`[Registry] la misión {id} objetivo {index}: enemigo inexistente {objective.TargetId}`)
+			end
+		elseif objective.Type == "DefeatBoss" then
+			local boss = objective.TargetId and Enemies[objective.TargetId]
+			if not boss then
+				error(`[Registry] la misión {id} objetivo {index}: jefe inexistente`)
+			end
+			if not table.find(boss.Tags, "boss") then
+				error(`[Registry] la misión {id} objetivo {index}: {boss.Id} no está etiquetado como boss`)
+			end
+		end
+	end
+
+	for enemyId, entry in mission.EnemyConfiguration do
+		if not Enemies[enemyId] then
+			error(`[Registry] la misión {id} configura el enemigo inexistente {enemyId}`)
+		end
+		if typeof(entry.Enabled) ~= "boolean" or entry.Weight < 0 then
+			error(`[Registry] la misión {id} tiene una entrada inválida para {enemyId}`)
+		end
+	end
+
+	if mission.Boss then
+		local boss = Enemies[mission.Boss.Id]
+		if not boss or not table.find(boss.Tags, "boss") then
+			error(`[Registry] la misión {id} invoca un jefe inexistente {mission.Boss.Id}`)
+		end
+		if (mission.Boss.SpawnAt or 0) < 0 then
+			error(`[Registry] la misión {id} tiene un SpawnAt negativo`)
+		end
+	end
+
+	for _, unlocked in mission.Rewards.MissionUnlocks do
+		if not Missions[unlocked] then
+			error(`[Registry] la misión {id} desbloquea la misión inexistente {unlocked}`)
+		end
+	end
+	for _, unlocked in mission.Rewards.MapUnlocks do
+		if not Maps[unlocked] then
+			error(`[Registry] la misión {id} desbloquea el mapa inexistente {unlocked}`)
+		end
+	end
+end
+
 return {
 	Weapons = Weapons,
 	Enemies = Enemies,
 	Upgrades = Upgrades,
+	Maps = Maps,
+	Missions = Missions,
 	StartingWeaponId = STARTING_WEAPON_ID,
 }
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="40">
+      <Item class="ModuleScript" referent="51">
         <Properties>
           <string name="Name">Remotes</string>
           <string name="Source"><![CDATA[--!strict
@@ -1295,11 +1746,24 @@ return {
 	RequestUpgrade = remote("RequestUpgrade", "RemoteEvent") :: RemoteEvent,
 	-- Servidor → cliente: feedback visual descartable (kind: string, position, magnitude).
 	CombatEffect = remote("CombatEffect", "UnreliableRemoteEvent") :: UnreliableRemoteEvent,
+	-- Cliente → servidor: comando de desarrollo (solo Studio; fuera de Studio no hay
+	-- handler). Payload: (command: string, value: unknown).
+	AdminCommand = remote("AdminCommand", "RemoteEvent") :: RemoteEvent,
+	-- Cliente → servidor: petición de empezar una misión (string missionId). El
+	-- servidor valida existencia y desbloqueo; el cliente nunca cambia de estado.
+	RequestMission = remote("RequestMission", "RemoteEvent") :: RemoteEvent,
+	-- Servidor → cliente: lista de misiones con su estado para este jugador
+	-- ({MissionSummary}).
+	MissionList = remote("MissionList", "RemoteEvent") :: RemoteEvent,
+	-- Servidor → cliente: instantánea de la misión en curso (MissionSnapshot) o nil.
+	MissionUpdate = remote("MissionUpdate", "RemoteEvent") :: RemoteEvent,
+	-- Servidor → cliente: resultado final de la misión (MissionResult).
+	MissionFinished = remote("MissionFinished", "RemoteEvent") :: RemoteEvent,
 }
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="41">
+      <Item class="ModuleScript" referent="52">
         <Properties>
           <string name="Name">StatMath</string>
           <string name="Source"><![CDATA[--!strict
@@ -1395,7 +1859,7 @@ return StatMath
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="42">
+      <Item class="ModuleScript" referent="53">
         <Properties>
           <string name="Name">Types</string>
           <string name="Source"><![CDATA[--!strict
@@ -1558,7 +2022,134 @@ export type RunSnapshot = {
 	PickupRadius: number,
 }
 
-export type MatchState = "Lobby" | "Starting" | "Playing" | "LevelUp" | "Event" | "Boss" | "Victory" | "Defeat"
+export type MatchState =
+	"Lobby"
+	| "Starting"
+	| "Playing"
+	| "LevelUp"
+	| "Event"
+	| "Boss"
+	| "MissionSelect"
+	| "Victory"
+	| "Defeat"
+
+-- Un mapa es geometría + puntos de interés declarados con números planos, para que
+-- el registro de contenido se pueda validar headless (sin la API de Roblox).
+export type MapDefinition = {
+	Id: string,
+	DisplayName: string,
+	Description: string?,
+	Arena: { HalfExtent: number, FloorY: number },
+	PlayerSpawn: { X: number, Y: number, Z: number },
+	SpawnZones: { { Name: string, X: number, Y: number, Z: number, Radius: number } },
+}
+
+export type MissionObjectiveType = "Survive" | "KillEnemy" | "KillElite" | "DefeatBoss"
+
+export type MissionObjective = {
+	Type: MissionObjectiveType,
+	Duration: number?,
+	TargetId: string?,
+	Amount: number?,
+}
+
+export type MissionState =
+	"Locked"
+	| "Available"
+	| "Preparing"
+	| "Active"
+	| "Completing"
+	| "Completed"
+	| "Failed"
+
+export type EnemyConfiguration = {
+	[string]: { Enabled: boolean, Weight: number },
+}
+
+-- Global difficulty traits specific to a mission. The Spawner uses them.
+export type MissionDifficulty = {
+	EnemyHealthMultiplier: number,
+	EnemyDamageMultiplier: number,
+	EnemySpawnRateMultiplier: number,
+	EliteChance: number?,
+}
+
+export type MissionRewards = {
+	Currency: number,
+	MissionUnlocks: { string },
+	MapUnlocks: { string },
+}
+
+export type MissionDefinition = {
+	Id: string,
+	MapId: string,
+	DisplayName: string,
+	Description: string,
+	Duration: number,
+	Objectives: { MissionObjective },
+	EnemyConfiguration: EnemyConfiguration,
+	Boss: { Id: string, SpawnAt: number? }?,
+	Rewards: MissionRewards,
+	DifficultyMultipliers: MissionDifficulty,
+}
+
+export type MapDefinitions = { [string]: MapDefinition }
+export type MissionDefinitions = { [string]: MissionDefinition }
+
+-- Vista de un objetivo concreto durante una misión. `Required` es siempre el total
+-- normalizado (1 para objetivos booleanos como derrotar al jefe), para que la UI no
+-- tenga que conocer la forma de cada tipo de objetivo.
+export type MissionObjectiveState = {
+	Type: MissionObjectiveType,
+	Label: string,
+	Current: number,
+	Required: number,
+	Complete: boolean,
+}
+
+export type MissionBossView = {
+	Id: string,
+	Name: string,
+	Active: boolean,
+	Health: number,
+	MaxHealth: number,
+}
+
+-- Instantánea autoritativa que el servidor envía al cliente mientras hay misión.
+export type MissionSnapshot = {
+	MissionId: string,
+	DisplayName: string,
+	MapId: string,
+	State: MissionState,
+	Elapsed: number,
+	Remaining: number?,
+	Objectives: { MissionObjectiveState },
+	Boss: MissionBossView?,
+}
+
+-- Resumen de misión para el panel de selección (estado por jugador incluido).
+export type MissionSummary = {
+	Id: string,
+	MapId: string,
+	MapName: string,
+	DisplayName: string,
+	Description: string,
+	Duration: number,
+	State: MissionState,
+	Objectives: { { Type: MissionObjectiveType, Label: string, Required: number } },
+	Rewards: { Currency: number, Missions: { string }, Maps: { string } },
+}
+
+export type MissionResult = {
+	MissionId: string,
+	DisplayName: string,
+	Outcome: "Completed" | "Failed",
+	Duration: number,
+	BossDefeated: boolean,
+	Currency: number,
+	UnlockedMissions: { string },
+	UnlockedMaps: { string },
+}
 
 -- Este módulo solo exporta tipos. La tabla vacía evita que el require devuelva nil y
 -- que el analizador de Studio marque los usos `Types.Algo` como acceso a nil.
@@ -1566,7 +2157,7 @@ return {}
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="43">
+      <Item class="ModuleScript" referent="54">
         <Properties>
           <string name="Name">UpgradeOffers</string>
           <string name="Source"><![CDATA[--!strict
@@ -1741,11 +2332,11 @@ return Offers
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="44">
+      <Item class="Folder" referent="55">
         <Properties>
           <string name="Name">Utilities</string>
         </Properties>
-        <Item class="ModuleScript" referent="45">
+        <Item class="ModuleScript" referent="56">
           <Properties>
             <string name="Name">Format</string>
             <string name="Source"><![CDATA[--!strict
@@ -1771,19 +2362,132 @@ return Format
       </Item>
     </Item>
   </Item>
-  <Item class="ServerScriptService" referent="46">
+  <Item class="ServerScriptService" referent="57">
     <Properties>
       <string name="Name">ServerScriptService</string>
     </Properties>
-    <Item class="Folder" referent="47">
+    <Item class="Folder" referent="58">
       <Properties>
         <string name="Name">Server</string>
       </Properties>
-      <Item class="Folder" referent="48">
+      <Item class="ModuleScript" referent="59">
+        <Properties>
+          <string name="Name">Admin</string>
+          <string name="Source"><![CDATA[--!strict
+-- Menú de administración SOLO en Studio: otorga armas, sube mejoras a tope, da XP
+-- y cura, para poder playtestear el arsenal sin depender del sorteo de cartas.
+--
+-- El remote existe también en builds de producción (el árbol de ReplicatedStorage
+-- no difiere), pero "un botón no es autoridad": fuera de Studio no hay handler, así
+-- que FireServer no tiene ningún efecto. Y aunque un cliente llegara a usarlo en un
+-- servidor de Studio, los comandos son una lista fija con tipos validados.
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Registry = require(Shared:WaitForChild("Registry"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
+local Run = require(script.Parent.Run)
+local Stats = require(script.Parent.Stats)
+local PlayerAvatar = require(script.Parent.PlayerAvatar)
+local Match = require(script.Parent.Match)
+local WeaponRuntime = require(script.Parent.Combat.WeaponRuntime)
+
+type RunState = Run.Run
+
+local Admin = {}
+
+local function heal(player: Player)
+	local humanoid = PlayerAvatar.humanoid(player)
+	local stats = Stats.get(player)
+	if humanoid then
+		humanoid.Health = math.min(humanoid.MaxHealth, stats.MaxHealth or 100)
+	end
+end
+
+-- Refresca la proyección al avatar, reinicia los relojes de armas (para que
+-- disparen ya con las stats nuevas) y empuja un snapshot al HUD.
+local function commit(player: Player)
+	PlayerAvatar.applyStats(player, Stats.get(player))
+	WeaponRuntime.reset(player)
+	Match.pushSnapshot(player)
+end
+
+local function handle(player: Player, command: unknown, value: unknown): boolean
+	if typeof(command) ~= "string" then
+		return false
+	end
+
+	local state = Run.get(player)
+	if command == "unlock_all" then
+		for weaponId, _weapon in Registry.Weapons do
+			state.weaponLevels[weaponId] = math.max(1, state.weaponLevels[weaponId] or 0)
+		end
+	elseif command == "max_all" then
+		for weaponId, weapon in Registry.Weapons do
+			state.weaponLevels[weaponId] = weapon.MaxLevel
+		end
+		for upgradeId, upgrade in Registry.Upgrades do
+			if upgrade.Kind ~= "NewWeapon" then
+				state.upgradeLevels[upgradeId] = upgrade.MaxLevel
+			end
+		end
+	elseif command == "grant_xp" then
+		if typeof(value) ~= "number" then
+			return false
+		end
+		Match.grantXp(player, value)
+		return true
+	elseif command == "level_up" then
+		-- Subir el nivel de UN arma manualmente (o desbloquearla si todavía no
+		-- estaba en el inventario).
+		if typeof(value) ~= "string" then
+			return false
+		end
+		local weapon = Registry.Weapons[value]
+		if not weapon then
+			return false
+		end
+		state.weaponLevels[value] = math.min((state.weaponLevels[value] or 0) + 1, weapon.MaxLevel)
+	elseif command == "upgrade_level_up" then
+		-- Subir el nivel de UNA mejora manualmente.
+		if typeof(value) ~= "string" then
+			return false
+		end
+		local upgrade = Registry.Upgrades[value]
+		if not upgrade or upgrade.Kind == "NewWeapon" then
+			return false
+		end
+		state.upgradeLevels[value] = math.min((state.upgradeLevels[value] or 0) + 1, upgrade.MaxLevel)
+	elseif command == "heal" then
+		heal(player)
+	else
+		return false
+	end
+
+	commit(player)
+	return true
+end
+
+function Admin.init()
+	if not RunService:IsStudio() then
+		return
+	end
+	Remotes.AdminCommand.OnServerEvent:Connect(function(player: Player, command: unknown, value: unknown)
+		if not handle(player, command, value) then
+			warn(`[Admin] comando rechazado de {player.Name}`)
+		end
+	end)
+end
+
+return Admin
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="Folder" referent="60">
         <Properties>
           <string name="Name">Combat</string>
         </Properties>
-        <Item class="ModuleScript" referent="49">
+        <Item class="ModuleScript" referent="61">
           <Properties>
             <string name="Name">OrbitBlades</string>
             <string name="Source"><![CDATA[--!strict
@@ -1797,6 +2501,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local GameAssets = require(Shared:WaitForChild("GameAssets"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
 local Pool = require(script.Parent.Parent.Utility.Pool)
 local EnemyRegistry = require(script.Parent.Parent.Enemies.EnemyRegistry)
 local PlayerAvatar = require(script.Parent.Parent.PlayerAvatar)
@@ -1927,7 +2632,7 @@ function OrbitBlades.configure(player: Player, stats: { [string]: number }, dama
 	end
 end
 
-local function cut(position: Vector3, orbit: Orbit, now: number)
+local function cut(position: Vector3, tangent: Vector3, orbit: Orbit, now: number)
 	local contact = Config.Orbit.ContactRadius
 	for _, enemy in EnemyRegistry.queryRadius(position, contact + QUERY_PAD) do
 		if enemy.HitLockUntil <= now then
@@ -1938,6 +2643,14 @@ local function cut(position: Vector3, orbit: Orbit, now: number)
 			if distance <= reach * reach then
 				enemy.HitLockUntil = now + orbit.Cooldown
 				EnemyRegistry.damage(enemy, orbit.Damage, orbit.IsCrit)
+				-- Arco de corte: un rayito desde el filo hacia donde viene la cuchilla
+				-- (la tangente al giro). El cliente lo dibuja corto y brillante.
+				Remotes.CombatEffect:FireAllClients(
+					"slash",
+					position,
+					1,
+					position + tangent * Config.Orbit.SlashLength
+				)
 			end
 		end
 	end
@@ -1967,10 +2680,14 @@ function OrbitBlades.update(dt: number, now: number)
 		for index, blade in orbit.Blades do
 			local angle = orbit.Angle + spacing * index
 			local cos, sin = math.cos(angle), math.sin(angle)
-			local position = center + Vector3.new(cos, 0, sin) * orbit.Radius
+			-- Bob vertical sutil y desfasado por cuchilla, para que el enjambre no se
+			-- lea como un disco muerto: cada cuchilla sube y baja mientras orbita.
+			local bob = math.sin(now * Config.Orbit.BobSpeed + index * 0.9) * Config.Orbit.BobAmount
+			local position = center + Vector3.new(cos, 0, sin) * orbit.Radius + Vector3.new(0, bob, 0)
+			local tangent = Vector3.new(-sin, 0, cos)
 			-- Orientada tangente al giro, que es como se lee una cuchilla girando.
-			blade.Part.CFrame = CFrame.lookAt(position, position + Vector3.new(-sin, 0, cos))
-			cut(position, orbit, now)
+			blade.Part.CFrame = CFrame.lookAt(position, position + tangent)
+			cut(position, tangent, orbit, now)
 		end
 	end
 end
@@ -1979,7 +2696,7 @@ return OrbitBlades
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="50">
+        <Item class="ModuleScript" referent="62">
           <Properties>
             <string name="Name">Projectiles</string>
             <string name="Source"><![CDATA[--!strict
@@ -2011,6 +2728,10 @@ type Projectile = {
 	BlastRadius: number,
 	-- Gravedad vertical. 0 = vuelo recto; > 0 = parábola que acaba detonando.
 	Gravity: number,
+	-- Giro acumulado en vuelo (rad). Solo las bombas giran: las balas rectas llevan
+	-- SpinRate a cero y se conservan con su orientación actual.
+	Spin: number,
+	SpinRate: number,
 	Slot: number,
 	Lease: any,
 }
@@ -2039,6 +2760,40 @@ local function buildTemplate(): Part
 	return part
 end
 
+-- Rastro de las bombas: dos attachments perpendiculares al avance (así el ribete
+-- tiene anchura que la cámara top-down sí ve) y un Trail apagado por defecto. Se
+-- monta una sola vez por pieza; el pool recicla la pieza, no el rastro.
+local function ensureBombTrail(part: Part)
+	if part:FindFirstChild("BombTrail") then
+		return
+	end
+
+	local attach0 = Instance.new("Attachment")
+	attach0.Name = "Trail0"
+	attach0.Position = Vector3.new(0.65, 0, 0)
+
+	local attach1 = Instance.new("Attachment")
+	attach1.Name = "Trail1"
+	attach1.Position = Vector3.new(-0.65, 0, 0)
+
+	local trail = Instance.new("Trail")
+	trail.Name = "BombTrail"
+	trail.Attachment0 = attach0
+	trail.Attachment1 = attach1
+	trail.Color = ColorSequence.new(Color3.fromRGB(255, 164, 68))
+	trail.Lifetime = Config.Projectile.BombTrail.Lifetime
+	trail.MaxLength = Config.Projectile.BombTrail.Length
+	trail.MinLength = 0.5
+	trail.LightEmission = Config.Projectile.BombTrail.LightEmission
+	trail.Brightness = Config.Projectile.BombTrail.Brightness
+	trail.Transparency =
+		NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 1) })
+	trail.Enabled = false
+	trail.Parent = part
+	attach0.Parent = part
+	attach1.Parent = part
+end
+
 function Projectiles.init()
 	if container then
 		return
@@ -2054,20 +2809,22 @@ function Projectiles.count(): number
 end
 
 -- Camino común de los dos tipos de proyectil. La única diferencia entre una bala y
--- una bomba son los dos ultimos parametros, de modo que el pool, el array y la
--- simulacion viven en un solo sitio.
+-- una bomba son los tres ultimos parametros (explosión, gravedad y giro), de modo
+-- que el pool, el array y la simulacion viven en un solo sitio. La velocidad es
+-- absoluta y llega ya calculada: las bombas la construyen con su arco (lob), las
+-- balas con dirección * rapidez.
 local function launch(
 	origin: Vector3,
-	direction: Vector3,
+	velocity: Vector3,
 	damage: number,
-	speed: number,
 	lifetime: number,
 	owner: Player,
 	isCrit: boolean,
 	blastRadius: number,
-	gravity: number
+	gravity: number,
+	spinRate: number
 )
-	if not pool or direction.Magnitude < 0.01 then
+	if not pool or velocity.Magnitude < 0.01 then
 		return
 	end
 
@@ -2084,20 +2841,30 @@ local function launch(
 		part.Color = color
 		part.Material = Enum.Material.Neon
 		part.Transparency = 0.1
-		part.CFrame = CFrame.new(origin)
+		part.CFrame = CFrame.lookAt(origin, origin + velocity)
 		part.Parent = container
+		-- El rastro solo pertenece a las bombas: una bala reciclada lo apaga para
+		-- no arrastrar el de la bomba anterior.
+		ensureBombTrail(part)
+		local trail = part:FindFirstChild("BombTrail") :: Trail?
+		if trail then
+			trail.Enabled = explosive
+			trail.Color = ColorSequence.new(color)
+		end
 	end)
 
 	table.insert(projectiles, {
 		Part = acquired :: Part,
 		Position = origin,
-		Velocity = direction.Unit * math.max(speed, Config.Projectile.SpeedFloor),
+		Velocity = velocity,
 		Damage = damage,
 		IsCrit = isCrit,
 		Owner = owner,
 		Life = math.min(lifetime, Config.Projectile.MaxLifetime),
 		BlastRadius = blastRadius,
 		Gravity = gravity,
+		Spin = 0,
+		SpinRate = spinRate,
 		Slot = #projectiles + 1,
 		Lease = lease,
 	})
@@ -2113,16 +2880,16 @@ function Projectiles.spawn(
 	owner: Player,
 	isCrit: boolean
 )
-	launch(origin, direction, damage, speed, lifetime, owner, isCrit, 0, 0)
+	local velocity = direction.Unit * math.max(speed, Config.Projectile.SpeedFloor)
+	launch(origin, velocity, damage, lifetime, owner, isCrit, 0, 0, 0)
 end
 
--- Bomba: vuela en parbola y detona al tocar el suelo, al tocar un enemigo o al
--- agotar su tiempo de vuelo.
+-- Bomba: vuela en parábola (el arco ya viene en `velocity`) y detona al tocar el
+-- suelo, al tocar un enemigo o al agotar su tiempo de vuelo.
 function Projectiles.spawnBomb(
 	origin: Vector3,
-	direction: Vector3,
+	velocity: Vector3,
 	damage: number,
-	speed: number,
 	lifetime: number,
 	owner: Player,
 	isCrit: boolean,
@@ -2130,14 +2897,14 @@ function Projectiles.spawnBomb(
 )
 	launch(
 		origin,
-		direction,
+		velocity,
 		damage,
-		speed,
 		lifetime,
 		owner,
 		isCrit,
 		math.max(blastRadius, 1),
-		Config.Projectile.Gravity
+		Config.Projectile.Gravity,
+		Config.Projectile.BombSpin
 	)
 end
 
@@ -2230,7 +2997,23 @@ local function step(index: number, dt: number)
 		detonate(index)
 		return
 	end
-	projectile.Part.CFrame = CFrame.new(projectile.Position)
+
+	-- La bomba gira alrededor de su eje de avance: el rollo alrededor de Z local no
+	-- mueve los attachments del trail (están en perpendicular), así que el rastro se
+	-- queda pegado a la trayectoria mientras la piedra da vueltas.
+	if projectile.SpinRate > 0 then
+		projectile.Spin += projectile.SpinRate * dt
+		local forward = projectile.Velocity.Unit
+		-- lookAt no soporta un forward paralelo al up: se desvía un pelo para que
+		-- una bomba casi vertical al aterrizar no genere un CFrame NaN.
+		if math.abs(forward.Y) > 0.98 then
+			forward = Vector3.new(forward.X + 0.01, forward.Y, forward.Z).Unit
+		end
+		projectile.Part.CFrame = CFrame.lookAt(projectile.Position, projectile.Position + forward)
+			* CFrame.Angles(0, 0, projectile.Spin)
+	else
+		projectile.Part.CFrame = CFrame.new(projectile.Position)
+	end
 end
 
 function Projectiles.update(dt: number)
@@ -2249,7 +3032,7 @@ return Projectiles
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="51">
+        <Item class="ModuleScript" referent="63">
           <Properties>
             <string name="Name">WeaponBehaviors</string>
             <string name="Source"><![CDATA[--!strict
@@ -2395,9 +3178,16 @@ local function fireChain(context: Context)
 	local jumpRange = math.max(4, context.stats.ChainRange or 18)
 	local falloff = math.clamp(context.stats.ChainFalloff or 0.85, 0.1, 1)
 
-	local from = Vector3.new(context.target.X, Config.Arena.FloorY + 1, context.target.Z)
+	-- El primer salto nace en el arma del jugador con su propio offset Y, no en el
+	-- punto apuntado: así el rayo de apertura siempre tiene longitud, y por tanto
+	-- siempre se dibuja, aunque el primer objetivo esté justo delante.
+	local hitY = Config.Arena.FloorY + 1
+	local source = Vector3.new(context.origin.X, hitY, context.origin.Z)
+
 	local alreadyHit: { [number]: boolean } = {}
-	local current: EnemyRegistry.Enemy? = nearestUntouched(from, 1, alreadyHit)
+	local current: EnemyRegistry.Enemy? =
+		nearestUntouched(Vector3.new(context.target.X, hitY, context.target.Z), 1, alreadyHit)
+	local from = source
 
 	for _ = 1, jumps do
 		if not current then
@@ -2406,7 +3196,7 @@ local function fireChain(context: Context)
 		EnemyRegistry.damage(current, damage, isCrit)
 		alreadyHit[current.Id] = true
 
-		local position = Vector3.new(current.Position.X, Config.Arena.FloorY + 1, current.Position.Z)
+		local position = Vector3.new(current.Position.X, hitY, current.Position.Z)
 		Remotes.CombatEffect:FireAllClients("chain", from, jumpRange, position)
 
 		from = position
@@ -2415,38 +3205,51 @@ local function fireChain(context: Context)
 	end
 end
 
--- Lanza bombas en parábola hacia el objetivo. La detonación y el daño en área los
--- lleva el propio proyectil, no esta función: aquí solo se elige hacia dónde.
+-- Lanza bombas con un arco real: sube y cae. La detonación y el daño en área los
+-- lleva el propio proyectil, no esta función: aquí solo se construye la velocidad
+-- de lanzamiento desde el lob deseado.
 local function fireBomb(context: Context)
 	if not context.target then
 		return
 	end
 
 	local muzzle = context.origin + Vector3.new(0, 1.4, 0)
-	local aim = context.target - muzzle
-	if aim.Magnitude < 0.01 then
+	local flat = Vector3.new(context.target.X - muzzle.X, 0, context.target.Z - muzzle.Z)
+	local flatDistance = flat.Magnitude
+	if flatDistance < 0.2 then
 		return
 	end
-	aim = aim.Unit
+	flat = flat / flatDistance
 
 	local blast = math.max(1, context.stats.BlastRadius or 8)
 	local arc = math.clamp(context.stats.Arc or 0.45, 0, 1.5)
 	local speed = math.max(Config.Projectile.SpeedFloor, context.stats.ProjectileSpeed or 44)
-	local range = math.max(6, context.stats.Range or 34)
-	local lifetime = range / speed + 0.35
 	local count = math.max(1, math.round(context.stats.ProjectileCount or 1))
 
+	-- La altura pico crece con la distancia al objetivo y con la stat Arc, y la
+	-- velocidad vertical sale de la conservación (v² = 2·g·h): la altura es exacta
+	-- y no depende del frame ni del giro del mundo.
+	local gravity = Config.Projectile.Gravity
+	local rise = math.clamp(
+		flatDistance * 0.28 + arc * 6,
+		Config.Projectile.LobHeightMin,
+		Config.Projectile.LobHeightMax
+	)
+	local verticalSpeed = math.sqrt(2 * gravity * rise)
+	local flightTime = 2 * verticalSpeed / gravity
+	-- Velocidad horizontal suficiente para alcanzar al objetivo antes de caer.
+	local horizontalSpeed = math.max(speed, flatDistance / math.max(flightTime, 0.01) + 1)
+	local lifetime = flightTime + 0.5
+
 	for _ = 1, count do
-		-- La dispersión solo afecta a la horizontal: todas las bombas de una andanada
-		-- salen con la misma elevación y así la andanada sigue siendo legible.
+		-- La dispersión solo rota la orientación horizontal: todas las bombas de la
+		-- andanada comparten altura y así el arco se sigue leyendo como una sola
+		-- parábola.
 		local scatter = (math.random() - 0.5) * math.rad(9)
-		local direction = Vector3.new(
-			aim.X * math.cos(scatter) - aim.Z * math.sin(scatter),
-			aim.Y + arc,
-			aim.X * math.sin(scatter) + aim.Z * math.cos(scatter)
-		)
+		local scattered = rotateY(flat, scatter)
+		local velocity = scattered * horizontalSpeed + Vector3.new(0, verticalSpeed, 0)
 		local damage, isCrit = rollCrit(context.player, context.stats, context.now)
-		Projectiles.spawnBomb(muzzle, direction, damage, speed, lifetime, context.player, isCrit, blast)
+		Projectiles.spawnBomb(muzzle, velocity, damage, lifetime, context.player, isCrit, blast)
 	end
 end
 
@@ -2468,7 +3271,7 @@ return {
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="52">
+        <Item class="ModuleScript" referent="64">
           <Properties>
             <string name="Name">WeaponRuntime</string>
             <string name="Source"><![CDATA[--!strict
@@ -2594,11 +3397,11 @@ return WeaponRuntime
           </Properties>
         </Item>
       </Item>
-      <Item class="Folder" referent="53">
+      <Item class="Folder" referent="65">
         <Properties>
           <string name="Name">Data</string>
         </Properties>
-        <Item class="ModuleScript" referent="54">
+        <Item class="ModuleScript" referent="66">
           <Properties>
             <string name="Name">MetaData</string>
             <string name="Source"><![CDATA[--!strict
@@ -2650,12 +3453,158 @@ return MetaData
 ]]></string>
           </Properties>
         </Item>
+        <Item class="ModuleScript" referent="67">
+          <Properties>
+            <string name="Name">Profile</string>
+            <string name="Source"><![CDATA[--!strict
+-- Progresión permanente del jugador. Hoy es memoria de sesión: existe para que la
+-- frontera Run/Meta y la autoridad del servidor queden marcadas desde el principio.
+--
+-- Persistencia (DataStore) pendiente. Cuando se active:
+--   - UpdateAsync con bloqueo de sesión (nunca GetAsync + SetAsync).
+--   - Guardar en PlayerRemoving y BindToClose, no solo al salir.
+--   - Reconciliar contra los defaults y validar números antes de escribir.
+--
+-- Nada de aquí concede nada al cliente: `RewardSystem`/`UnlockSystem` son los únicos
+-- que escriben, y ambos corren en el servidor.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Registry = require(Shared:WaitForChild("Registry"))
+
+export type Profile = {
+	Currency: number,
+	UnlockedMissions: { [string]: boolean },
+	UnlockedMaps: { [string]: boolean },
+	CompletedMissions: { [string]: boolean },
+}
+
+-- Las misiones iniciales se derivan del contenido: una misión que nadie desbloquea
+-- está disponible desde el principio. Así añadir contenido no toca este módulo.
+local function isUnlockedByMission(missionId: string): boolean
+	for _, mission in Registry.Missions do
+		for _, unlocked in mission.Rewards.MissionUnlocks do
+			if unlocked == missionId then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+local function isUnlockedByMissionReward(mapId: string): boolean
+	for _, mission in Registry.Missions do
+		for _, unlocked in mission.Rewards.MapUnlocks do
+			if unlocked == mapId then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+local STARTING_MISSIONS: { string } = {}
+for id in Registry.Missions do
+	if not isUnlockedByMission(id) then
+		table.insert(STARTING_MISSIONS, id)
+	end
+end
+table.sort(STARTING_MISSIONS)
+
+local STARTING_MAPS: { [string]: boolean } = {}
+for _, id in STARTING_MISSIONS do
+	STARTING_MAPS[Registry.Missions[id].MapId] = true
+end
+for id in Registry.Maps do
+	if not isUnlockedByMissionReward(id) then
+		STARTING_MAPS[id] = true
+	end
+end
+
+local profiles: { [Player]: Profile } = {}
+
+local Profile = {}
+
+function Profile.get(player: Player): Profile
+	local profile = profiles[player]
+	if profile then
+		return profile
+	end
+	profile = {
+		Currency = 0,
+		UnlockedMissions = {},
+		UnlockedMaps = {},
+		CompletedMissions = {},
+	}
+	for _, id in STARTING_MISSIONS do
+		profile.UnlockedMissions[id] = true
+	end
+	for id in STARTING_MAPS do
+		profile.UnlockedMaps[id] = true
+	end
+	profiles[player] = profile
+	return profile
+end
+
+function Profile.release(player: Player)
+	profiles[player] = nil
+end
+
+function Profile.isMissionUnlocked(player: Player, missionId: string): boolean
+	return Profile.get(player).UnlockedMissions[missionId] == true
+end
+
+function Profile.isMissionCompleted(player: Player, missionId: string): boolean
+	return Profile.get(player).CompletedMissions[missionId] == true
+end
+
+-- Devuelve true solo la primera vez: permite informar al cliente de un desbloqueo
+-- real sin duplicar el aviso en reintentos.
+function Profile.unlockMission(player: Player, missionId: string): boolean
+	local profile = Profile.get(player)
+	if profile.UnlockedMissions[missionId] then
+		return false
+	end
+	profile.UnlockedMissions[missionId] = true
+	return true
+end
+
+function Profile.unlockMap(player: Player, mapId: string): boolean
+	local profile = Profile.get(player)
+	if profile.UnlockedMaps[mapId] then
+		return false
+	end
+	profile.UnlockedMaps[mapId] = true
+	return true
+end
+
+function Profile.completeMission(player: Player, missionId: string): boolean
+	local profile = Profile.get(player)
+	if profile.CompletedMissions[missionId] then
+		return false
+	end
+	profile.CompletedMissions[missionId] = true
+	return true
+end
+
+function Profile.addCurrency(player: Player, amount: number): number
+	if amount <= 0 then
+		return 0
+	end
+	local profile = Profile.get(player)
+	profile.Currency += amount
+	return amount
+end
+
+return Profile
+]]></string>
+          </Properties>
+        </Item>
       </Item>
-      <Item class="Folder" referent="55">
+      <Item class="Folder" referent="68">
         <Properties>
           <string name="Name">Enemies</string>
         </Properties>
-        <Item class="ModuleScript" referent="56">
+        <Item class="ModuleScript" referent="69">
           <Properties>
             <string name="Name">EnemyAI</string>
             <string name="Source"><![CDATA[--!strict
@@ -2839,7 +3788,7 @@ return EnemyAI
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="57">
+        <Item class="ModuleScript" referent="70">
           <Properties>
             <string name="Name">EnemyRegistry</string>
             <string name="Source"><![CDATA[--!strict
@@ -2896,6 +3845,12 @@ local pool: Pool.Pooled = nil
 local grid: Grid.Grid = nil
 local enemies: { Enemy } = {}
 local nextId = 0
+
+-- Evento de muerte. Es el único punto por el que el sistema de misiones (y cualquier
+-- objetivo) se entera de una baja sin conocer el combate: solo recibe la definición
+-- del enemigo, que es dato, no lógica.
+export type KillListener = (enemy: Enemy) -> ()
+local killListeners: { KillListener } = {}
 
 local BasicDefinition: Types.EnemyDefinition? = nil
 pcall(function()
@@ -2966,6 +3921,16 @@ local function buildAssetTemplate(assetName: string): Model?
 end
 
 local EnemyRegistry = {}
+
+function EnemyRegistry.onKilled(listener: KillListener): () -> ()
+	table.insert(killListeners, listener)
+	return function()
+		local index = table.find(killListeners, listener)
+		if index then
+			table.remove(killListeners, index)
+		end
+	end
+end
 
 function EnemyRegistry.init()
 	if container then
@@ -3140,6 +4105,12 @@ function EnemyRegistry.damage(enemy: Enemy, amount: number, isCrit: boolean?): b
 	enemy.Alive = false
 	Remotes.CombatEffect:FireAllClients("death", center, 1)
 
+	-- Avisa antes de devolver el modelo al pool: los listeners solo leen la
+	-- definición y el estado del enemigo, no lo retienen.
+	for _, listener in killListeners do
+		listener(enemy)
+	end
+
 	local slot = enemy.Slot
 	local last = enemies[#enemies]
 	enemies[slot] = last
@@ -3171,7 +4142,7 @@ return EnemyRegistry
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="58">
+        <Item class="ModuleScript" referent="71">
           <Properties>
             <string name="Name">ProceduralEnemies</string>
             <string name="Source"><![CDATA[--!strict
@@ -3233,7 +4204,7 @@ return P
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="59">
+        <Item class="ModuleScript" referent="72">
           <Properties>
             <string name="Name">SpatialGrid</string>
             <string name="Source"><![CDATA[--!strict
@@ -3309,7 +4280,7 @@ return Grid
           </Properties>
         </Item>
       </Item>
-      <Item class="ModuleScript" referent="60">
+      <Item class="ModuleScript" referent="73">
         <Properties>
           <string name="Name">GameLoop</string>
           <string name="Source"><![CDATA[--!strict
@@ -3324,6 +4295,7 @@ local Projectiles = require(script.Parent.Combat.Projectiles)
 local OrbitBlades = require(script.Parent.Combat.OrbitBlades)
 local WeaponRuntime = require(script.Parent.Combat.WeaponRuntime)
 local XPPickups = require(script.Parent.Pickups.XPPickups)
+local MissionManager = require(script.Parent.Missions.MissionManager)
 
 -- Tras un tirón largo, un dt enorme teletransportaría enemigos y proyectiles.
 local MAX_STEP = 0.1
@@ -3358,6 +4330,10 @@ function GameLoop.start()
 		OrbitBlades.update(dt, now)
 		WeaponRuntime.update(now)
 		EnemySpawner.update(now, Match.getElapsed())
+		-- La misión se evalúa al final del frame: los eventos de muerte de este frame
+		-- ya han llegado a sus objetivos, así que una baja no se pierde hasta el
+		-- siguiente. `Match` no conoce a `MissionManager`; los une este bucle.
+		MissionManager.update(dt, now)
 	end)
 end
 
@@ -3372,7 +4348,7 @@ return GameLoop
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Script" referent="61">
+      <Item class="Script" referent="74">
         <Properties>
           <string name="Name">Main</string>
           <token name="RunContext">0</token>
@@ -3392,12 +4368,16 @@ local EnemyRegistry = require(script.Parent.Enemies.EnemyRegistry)
 local XPPickups = require(script.Parent.Pickups.XPPickups)
 local Projectiles = require(script.Parent.Combat.Projectiles)
 local OrbitBlades = require(script.Parent.Combat.OrbitBlades)
+local Admin = require(script.Parent.Admin)
+local Profile = require(script.Parent.Data.Profile)
+local MissionManager = require(script.Parent.Missions.MissionManager)
 
 -- Pools y carpetas de mundo antes de que nada pueda instanciar.
 EnemyRegistry.init()
 XPPickups.init()
 Projectiles.init()
 OrbitBlades.init()
+Admin.init()
 
 -- El propietario de la partida decide qué significa recoger XP. Inyectarlo aquí
 -- mantiene la dirección de dependencias en un solo sentido.
@@ -3410,12 +4390,48 @@ Remotes.RequestUpgrade.OnServerEvent:Connect(function(player: Player, upgradeId:
 	end
 end)
 
+-- Petición de misión. El servidor valida existencia, desbloqueo y estado de partida;
+-- el cliente nunca cambia de estado por su cuenta.
+Remotes.RequestMission.OnServerEvent:Connect(function(player: Player, missionId: unknown)
+	local ok, reason = MissionManager.requestStart(player, missionId)
+	if not ok then
+		warn(`[Server] misión rechazada de {player.Name}: {reason}`)
+	end
+end)
+
+-- La misión observa las transiciones de `Match` sin que `Match` la conozca: reacciona
+-- al fallo y suelta la ejecución al volver al lobby.
+Match.onStateChanged(function(state)
+	MissionManager.onMatchState(state)
+	if state == "MissionSelect" then
+		MissionManager.broadcastList()
+		MissionManager.broadcastUpdate()
+	end
+end)
+
 -- El servidor no emite nada por evento hasta que el cliente confirma que ya tiene
 -- sus listeners registrados: asi una carta de nivel que llega durante el arranque no
 -- se pierde.
 Remotes.ClientReady.OnServerEvent:Connect(function(player: Player)
 	Match.sendTo(player)
+	MissionManager.sendList(player)
+	MissionManager.sendUpdate(player)
 end)
+
+-- Carga el personaje de un jugador que no está vivo (el auto-respawn está apagado).
+local function ensureCharacter(player: Player, now: number)
+	if PlayerAvatar.isAlive(player) then
+		return
+	end
+	task.spawn(function()
+		local ok, problem = pcall(player.LoadCharacterAsync, player)
+		if not ok then
+			warn(`[Server] no se pudo cargar el personaje de {player.Name}: {problem}`)
+			return
+		end
+		PlayerAvatar.applyStats(player, Stats.get(player, now))
+	end)
+end
 
 local function onCharacterAdded(player: Player, character: Model)
 	local humanoid = character:WaitForChild("Humanoid", 10) :: Humanoid?
@@ -3437,12 +4453,16 @@ local function onPlayerAdded(player: Player)
 		onCharacterAdded(player, player.Character)
 	end
 
-	-- El vertical slice no tiene lobby jugable: en cuanto hay alguien, arranca la
-	-- partida. El estado "Lobby" ya existe para que la Fase 4 añada la sala sin tocar
-	-- los sistemas de juego.
+	-- Lobby jugable: el primer jugador mete la partida en selección de misión (y
+	-- recarga personajes); los que entran después se unen al estado existente. Solo
+	-- el servidor decide el estado; el cliente pide empezar una misión.
 	if Match.getState() == "Lobby" then
-		Match.startRun(os.clock())
+		Match.returnToSelect(os.clock())
+	else
+		ensureCharacter(player, os.clock())
 	end
+	MissionManager.sendList(player)
+	MissionManager.sendUpdate(player)
 end
 
 -- La partida es dueña del ciclo de vida del personaje: con el auto-respawn de Roblox
@@ -3453,6 +4473,7 @@ Players.CharacterAutoLoads = false
 Players.PlayerAdded:Connect(onPlayerAdded)
 Players.PlayerRemoving:Connect(function(player)
 	Match.releasePlayer(player)
+	Profile.release(player)
 end)
 
 GameLoop.start()
@@ -3464,7 +4485,7 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="62">
+      <Item class="ModuleScript" referent="75">
         <Properties>
           <string name="Name">Match</string>
           <string name="Source"><![CDATA[--!strict
@@ -3506,6 +4527,11 @@ local snapshotClock = 0
 local levelUpClock = 0
 local resultsEndsAt = 0
 local lastChoiceAt: { [Player]: number } = {}
+-- En la Fase 1 sobrevivir `TargetDuration` daba la victoria. Con misiones, quien
+-- decide el final es el MissionManager; este interruptor preserva el comportamiento
+-- antiguo cuando no hay misión activa (lobby/solo).
+local autoVictory = true
+local stateListeners: { (MatchState) -> () } = {}
 
 -- "Event", "Boss" y "Victory" están reservados: añadir un evento de partida no
 -- requiere tocar el HUD ni los clientes.
@@ -3516,6 +4542,7 @@ local SIMULATED: { [MatchState]: boolean } = {
 	LevelUp = false,
 	Event = true,
 	Boss = true,
+	MissionSelect = false,
 	Victory = false,
 	Defeat = false,
 }
@@ -3537,7 +4564,26 @@ function Match.setState(next: MatchState)
 		return
 	end
 	state = next
+	for _, listener in stateListeners do
+		listener(next)
+	end
 	Match.broadcast()
+end
+
+-- Observadores de transición (p. ej. MissionManager). Devuelve una función para
+-- darse de baja. `Match` no conoce a sus observadores: solo avisa.
+function Match.onStateChanged(listener: (MatchState) -> ()): () -> ()
+	table.insert(stateListeners, listener)
+	return function()
+		local index = table.find(stateListeners, listener)
+		if index then
+			table.remove(stateListeners, index)
+		end
+	end
+end
+
+function Match.setAutoVictory(enabled: boolean)
+	autoVictory = enabled
 end
 
 local function clearWorld()
@@ -3651,8 +4697,7 @@ function Match.startRun(now: number)
 	end
 
 	EnemySpawner.reset(now)
-	state = "Playing"
-	Match.broadcast()
+	Match.setState("Playing")
 end
 
 function Match.stopRun(final: MatchState, now: number)
@@ -3662,6 +4707,33 @@ function Match.stopRun(final: MatchState, now: number)
 		resultsEndsAt = now + duration
 	end
 	Match.setState(final)
+end
+
+-- Vuelta al lobby tras una partida. Deja a los jugadores vivos y con personaje para
+-- que la selección de misión no aparezca sobre nadie muerto. `MissionManager` escucha
+-- este estado y suelta la ejecución, de modo que la misión se puede reintentar.
+function Match.returnToSelect(now: number)
+	clearWorld()
+	elapsed = 0
+	snapshotClock = 0
+	levelUpClock = 0
+	resultsEndsAt = 0
+
+	for _, player in Players:GetPlayers() do
+		PlayerAvatar.applyStats(player, Stats.get(player, now))
+		if not PlayerAvatar.isAlive(player) then
+			task.spawn(function()
+				local ok, problem = pcall(player.LoadCharacterAsync, player)
+				if not ok then
+					warn(`[Match] no se pudo recargar el personaje de {player.Name}: {problem}`)
+					return
+				end
+				PlayerAvatar.applyStats(player, Stats.get(player, now))
+			end)
+		end
+	end
+
+	Match.setState("MissionSelect")
 end
 
 function Match.beginLevelUp()
@@ -3773,9 +4845,9 @@ function Match.update(dt: number, now: number)
 				Match.pushSnapshot(player)
 			end
 		end
-		-- Objetivo de la Fase 1. Cuando llegue el jefe, este reloj deja de decidir el
-		-- final y pasa a lanzar el evento: el resto del final de partida ya existe.
-		if elapsed >= Config.Run.TargetDuration then
+		-- Objetivo de la Fase 1 (sin misión). Con misión activa, `autoVictory` está
+		-- apagado y es el MissionManager quien cierra la partida.
+		if autoVictory and elapsed >= Config.Run.TargetDuration then
 			Match.stopRun("Victory", now)
 		end
 		return
@@ -3800,7 +4872,7 @@ function Match.update(dt: number, now: number)
 
 	if (state == "Defeat" or state == "Victory") and now >= resultsEndsAt then
 		if #Players:GetPlayers() > 0 then
-			Match.startRun(now)
+			Match.returnToSelect(now)
 		else
 			state = "Lobby"
 		end
@@ -3811,11 +4883,826 @@ return Match
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="63">
+      <Item class="Folder" referent="76">
+        <Properties>
+          <string name="Name">Missions</string>
+        </Properties>
+        <Item class="ModuleScript" referent="77">
+          <Properties>
+            <string name="Name">BossSystem</string>
+            <string name="Source"><![CDATA[--!strict
+-- Dueño del jefe vivo. Es independiente de las misiones: una misión solo pide
+-- `spawn(bossId)` y BossSystem decide dónde nace y cuándo ha caído. No tiene ninguna
+-- rama por jefe concreto: cualquier definición etiquetada "boss" sirve.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Registry = require(Shared:WaitForChild("Registry"))
+local PlayerAvatar = require(script.Parent.Parent.PlayerAvatar)
+local EnemyRegistry = require(script.Parent.Parent.Enemies.EnemyRegistry)
+
+export type Scaling = { health: number, speed: number, damage: number }
+export type DefeatListener = (bossId: string) -> ()
+
+local active: EnemyRegistry.Enemy? = nil
+local activeId: string? = nil
+local defeatListeners: { DefeatListener } = {}
+local listenConnection: (() -> ())? = nil
+
+local BossSystem = {}
+
+local function ensureKillListener()
+	if listenConnection then
+		return
+	end
+	-- El jefe se identifica por referencia: es el enemigo exacto que devolvió spawn.
+	-- Así dos jefes del mismo tipo en el futuro no se confunden.
+	listenConnection = EnemyRegistry.onKilled(function(enemy)
+		if not active or enemy ~= active then
+			return
+		end
+		local bossId = activeId or enemy.Definition.Id
+		active = nil
+		activeId = nil
+		for _, listener in defeatListeners do
+			listener(bossId)
+		end
+	end)
+end
+
+local function randomSpawnPoint(): Vector3
+	local players = PlayerAvatar.alivePlayers()
+	if #players > 0 then
+		local anchor = PlayerAvatar.root(players[math.random(1, #players)])
+		if anchor then
+			local angle = math.random() * math.pi * 2
+			local distance = (Config.Arena.SpawnRadiusMin + Config.Arena.SpawnRadiusMax) * 0.5
+			return anchor.Position + Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance)
+		end
+	end
+	return Vector3.zero
+end
+
+function BossSystem.spawn(bossId: string, scaling: Scaling): EnemyRegistry.Enemy?
+	if active then
+		return active
+	end
+	local definition = Registry.Enemies[bossId]
+	if not definition or not table.find(definition.Tags, "boss") then
+		warn(`[BossSystem] {bossId} no es un jefe válido`)
+		return nil
+	end
+	ensureKillListener()
+
+	local enemy = EnemyRegistry.spawn(bossId, randomSpawnPoint(), scaling)
+	if not enemy then
+		return nil
+	end
+	active = enemy
+	activeId = bossId
+	return enemy
+end
+
+function BossSystem.isActive(): boolean
+	return active ~= nil
+end
+
+function BossSystem.getActive(): EnemyRegistry.Enemy?
+	return active
+end
+
+function BossSystem.getActiveId(): string?
+	return activeId
+end
+
+function BossSystem.onDefeated(listener: DefeatListener): () -> ()
+	table.insert(defeatListeners, listener)
+	return function()
+		local index = table.find(defeatListeners, listener)
+		if index then
+			table.remove(defeatListeners, index)
+		end
+	end
+end
+
+function BossSystem.reset()
+	active = nil
+	activeId = nil
+end
+
+return BossSystem
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="78">
+          <Properties>
+            <string name="Name">MissionManager</string>
+            <string name="Source"><![CDATA[--!strict
+-- Núcleo del sistema de misiones. Es el dueño de la verdad de la misión en curso:
+-- estado, objetivos, jefe invocado, completion/failure, recompensas y desbloqueos.
+--
+-- No contiene ramas por misión/objetivo/jefe: todo sale de `Registry.Missions` y de
+-- los registros modulares (`ObjectiveSystem`, `BossSystem`). Toda la autoridad es
+-- servidor; el cliente solo recibe instantáneas y pide empezar.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Registry = require(Shared:WaitForChild("Registry"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
+local Types = require(Shared:WaitForChild("Types"))
+local Match = require(script.Parent.Parent.Match)
+local Profile = require(script.Parent.Parent.Data.Profile)
+local Difficulty = require(script.Parent.Parent.Spawning.Difficulty)
+local EnemySpawner = require(script.Parent.Parent.Spawning.EnemySpawner)
+local EnemyRegistry = require(script.Parent.Parent.Enemies.EnemyRegistry)
+local ObjectiveSystem = require(script.Parent.ObjectiveSystem)
+local BossSystem = require(script.Parent.BossSystem)
+local RewardSystem = require(script.Parent.RewardSystem)
+local UnlockSystem = require(script.Parent.UnlockSystem)
+
+type MissionDefinition = Types.MissionDefinition
+type MissionState = Types.MissionState
+type MissionResult = Types.MissionResult
+
+export type Execution = {
+	definition: MissionDefinition,
+	state: MissionState,
+	objectives: { ObjectiveSystem.Runtime },
+	bossSpawned: boolean,
+	bossDefeated: boolean,
+	rewarded: boolean,
+}
+
+local current: Execution? = nil
+local lastResult: MissionResult? = nil
+
+local MissionManager = {}
+
+-- El evento de muerte llega una sola vez para todos: se reenvía a los objetivos de la
+-- misión activa y se marca la caída del jefe. Ni el combate ni el spawner conocen a
+-- las misiones; solo existe este canal de datos.
+EnemyRegistry.onKilled(function(enemy)
+	local execution = current
+	if not execution or execution.state ~= "Active" then
+		return
+	end
+	if table.find(enemy.Definition.Tags, "boss") then
+		execution.bossDefeated = true
+	end
+	ObjectiveSystem.dispatch(execution.objectives, { Kind = "Kill", Enemy = enemy.Definition })
+end)
+
+local function summarizeObjectives(objectives: { ObjectiveSystem.Runtime }): { Types.MissionObjectiveState }
+	local views: { Types.MissionObjectiveState } = {}
+	for _, runtime in objectives do
+		table.insert(views, ObjectiveSystem.view(runtime))
+	end
+	return views
+end
+
+local function remainingSeconds(execution: Execution): number?
+	local remaining: number? = nil
+	for _, runtime in execution.objectives do
+		if runtime.Definition.Type == "Survive" then
+			local left = math.max(0, runtime.Required - runtime.Current)
+			if remaining == nil or left < remaining then
+				remaining = left
+			end
+		end
+	end
+	return remaining
+end
+
+function MissionManager.snapshot(): Types.MissionSnapshot?
+	local execution = current
+	if not execution then
+		return nil
+	end
+
+	local boss: Types.MissionBossView? = nil
+	local bossDefinition = execution.definition.Boss
+	if bossDefinition then
+		local enemy = BossSystem.getActive()
+		local definition = Registry.Enemies[bossDefinition.Id]
+		boss = {
+			Id = bossDefinition.Id,
+			Name = if definition then definition.Name else bossDefinition.Id,
+			Active = enemy ~= nil,
+			Health = if enemy then enemy.Health else 0,
+			MaxHealth = if enemy then enemy.MaxHealth else 0,
+		}
+	end
+
+	return {
+		MissionId = execution.definition.Id,
+		DisplayName = execution.definition.DisplayName,
+		MapId = execution.definition.MapId,
+		State = execution.state,
+		Elapsed = Match.getElapsed(),
+		Remaining = remainingSeconds(execution),
+		Objectives = summarizeObjectives(execution.objectives),
+		Boss = boss,
+	}
+end
+
+function MissionManager.broadcastUpdate()
+	Remotes.MissionUpdate:FireAllClients(MissionManager.snapshot())
+end
+
+function MissionManager.sendUpdate(player: Player)
+	Remotes.MissionUpdate:FireClient(player, MissionManager.snapshot())
+end
+
+local function summarizeObjectivesFor(definitions: { Types.MissionObjective })
+	local list = {}
+	for _, definition in definitions do
+		table.insert(list, ObjectiveSystem.staticView(definition))
+	end
+	return list
+end
+
+function MissionManager.buildSummaries(player: Player): { Types.MissionSummary }
+	local summaries: { Types.MissionSummary } = {}
+	for id, mission in Registry.Missions do
+		local state: MissionState = "Locked"
+		if Profile.isMissionCompleted(player, id) then
+			state = "Completed"
+		elseif Profile.isMissionUnlocked(player, id) then
+			state = "Available"
+		end
+		local map = Registry.Maps[mission.MapId]
+		table.insert(summaries, {
+			Id = id,
+			MapId = mission.MapId,
+			MapName = if map then map.DisplayName else mission.MapId,
+			DisplayName = mission.DisplayName,
+			Description = mission.Description,
+			Duration = mission.Duration,
+			State = state,
+			Objectives = summarizeObjectivesFor(mission.Objectives),
+			Rewards = {
+				Currency = mission.Rewards.Currency,
+				Missions = mission.Rewards.MissionUnlocks,
+				Maps = mission.Rewards.MapUnlocks,
+			},
+		})
+	end
+	table.sort(summaries, function(a, b)
+		return a.Id < b.Id
+	end)
+	return summaries
+end
+
+function MissionManager.sendList(player: Player)
+	Remotes.MissionList:FireClient(player, MissionManager.buildSummaries(player))
+end
+
+function MissionManager.broadcastList()
+	for _, player in Players:GetPlayers() do
+		MissionManager.sendList(player)
+	end
+end
+
+local function buildResult(execution: Execution, outcome: "Completed" | "Failed"): MissionResult
+	return {
+		MissionId = execution.definition.Id,
+		DisplayName = execution.definition.DisplayName,
+		Outcome = outcome,
+		Duration = Match.getElapsed(),
+		BossDefeated = execution.bossDefeated,
+		Currency = 0,
+		UnlockedMissions = {},
+		UnlockedMaps = {},
+	}
+end
+
+-- Cierre por éxito. Se llama una sola vez: el estado pasa a "Completing" antes de
+-- repartir nada, así una segunda detección no duplica recompensas.
+function MissionManager.complete(now: number)
+	local execution = current
+	if not execution or execution.state ~= "Active" then
+		return
+	end
+	execution.state = "Completing"
+	EnemySpawner.clearConfiguration()
+
+	local players = Players:GetPlayers()
+	local rewards = execution.definition.Rewards
+	local result = buildResult(execution, "Completed")
+
+	if not execution.rewarded then
+		execution.rewarded = true
+		RewardSystem.grant(rewards, players)
+		local unlocked = UnlockSystem.apply(rewards, players)
+		result.Currency = rewards.Currency
+		result.UnlockedMissions = unlocked.Missions
+		result.UnlockedMaps = unlocked.Maps
+		for _, player in players do
+			Profile.completeMission(player, execution.definition.Id)
+		end
+	end
+
+	lastResult = result
+	execution.state = "Completed"
+	MissionManager.broadcastUpdate()
+	Remotes.MissionFinished:FireAllClients(result)
+	MissionManager.broadcastList()
+
+	-- El fin de partida existente se reutiliza tal cual: limpia el mundo, muestra la
+	-- pantalla de resultado y, tras la pausa, vuelve a la selección de misión.
+	Match.stopRun("Victory", now)
+end
+
+-- Cierre por fallo. No reparte nada y deja la misión en Available para reintentar.
+function MissionManager.fail()
+	local execution = current
+	if not execution or (execution.state ~= "Active" and execution.state ~= "Preparing") then
+		return
+	end
+	execution.state = "Failed"
+	EnemySpawner.clearConfiguration()
+	BossSystem.reset()
+
+	local result = buildResult(execution, "Failed")
+	lastResult = result
+	MissionManager.broadcastUpdate()
+	Remotes.MissionFinished:FireAllClients(result)
+end
+
+function MissionManager.onMatchState(state: Types.MatchState)
+	if state == "Defeat" then
+		-- El fallo lo decide `Match` (todos muertos). La misión solo reacciona.
+		MissionManager.fail()
+	elseif state == "MissionSelect" or state == "Lobby" then
+		-- Vuelta al lobby: se suelta la ejecución para poder reintentar la misión.
+		current = nil
+		lastResult = nil
+		EnemySpawner.clearConfiguration()
+		BossSystem.reset()
+		Match.setAutoVictory(true)
+	end
+end
+
+-- Validación autoritativa. Nada del cliente se cree: existencia, mapa, desbloqueo y
+-- estado de partida se comprueban aquí.
+function MissionManager.requestStart(player: Player, missionId: unknown): (boolean, string?)
+	if typeof(missionId) ~= "string" or #missionId == 0 or #missionId > 60 then
+		return false, "bad mission id"
+	end
+	local definition = Registry.Missions[missionId]
+	if not definition then
+		return false, "unknown mission"
+	end
+	if not Registry.Maps[definition.MapId] then
+		return false, "unknown map"
+	end
+	if not Profile.isMissionUnlocked(player, missionId) then
+		return false, "mission locked"
+	end
+	if
+		current
+		and (current.state == "Active" or current.state == "Preparing" or current.state == "Completing")
+	then
+		return false, "mission already running"
+	end
+
+	local state = Match.getState()
+	if state ~= "MissionSelect" and state ~= "Lobby" then
+		return false, "not in mission select"
+	end
+
+	local execution: Execution = {
+		definition = definition,
+		state = "Preparing",
+		objectives = ObjectiveSystem.createAll(definition.Objectives),
+		bossSpawned = false,
+		bossDefeated = false,
+		rewarded = false,
+	}
+	current = execution
+	lastResult = nil
+
+	-- La configuración llega al spawner antes de que arranque la partida, para que la
+	-- primera oleada ya sea la de la misión.
+	Match.setAutoVictory(false)
+	EnemySpawner.setConfiguration(definition.EnemyConfiguration, definition.DifficultyMultipliers)
+	Match.startRun(os.clock())
+
+	execution.state = "Active"
+	MissionManager.broadcastUpdate()
+	MissionManager.broadcastList()
+	return true, nil
+end
+
+function MissionManager.update(dt: number, now: number)
+	local execution = current
+	if not execution or execution.state ~= "Active" or not Match.isSimulating() then
+		return
+	end
+
+	local elapsed = Match.getElapsed()
+	ObjectiveSystem.update(execution.objectives, dt)
+
+	local boss = execution.definition.Boss
+	if boss and not execution.bossSpawned and elapsed >= (boss.SpawnAt or 0) then
+		execution.bossSpawned = true
+		BossSystem.spawn(boss.Id, Difficulty.evaluate(elapsed, execution.definition.DifficultyMultipliers))
+		MissionManager.broadcastUpdate()
+	end
+
+	if ObjectiveSystem.allComplete(execution.objectives) then
+		MissionManager.complete(now)
+	end
+end
+
+function MissionManager.isActive(): boolean
+	return current ~= nil and current.state == "Active"
+end
+
+function MissionManager.getState(): MissionState?
+	return if current then current.state else nil
+end
+
+function MissionManager.getCurrentId(): string?
+	return if current then current.definition.Id else nil
+end
+
+function MissionManager.lastResult(): MissionResult?
+	return lastResult
+end
+
+return MissionManager
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="79">
+          <Properties>
+            <string name="Name">ObjectiveSystem</string>
+            <string name="Source"><![CDATA[--!strict
+-- Registro de tipos de objetivo. `MissionManager` nunca tiene una rama por tipo:
+-- crea runtimes, los actualiza por tiempo y les reparte eventos de gameplay.
+--
+-- Añadir un objetivo nuevo = un módulo en `Objectives/` + una línea aquí. No se toca
+-- ni la misión ni el gestor central.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Types = require(Shared:WaitForChild("Types"))
+
+-- Evento de gameplay normalizado. Hoy solo hay muertes; el día que exista recogida
+-- de objetos o interacción, se añade una variante y los objetivos interesados la leen.
+export type ObjectiveEvent =
+	{ Kind: "Kill", Enemy: Types.EnemyDefinition }
+	| { Kind: "BossDefeated", BossId: string }
+
+export type Runtime = {
+	Definition: Types.MissionObjective,
+	Required: number,
+	Current: number,
+	Complete: boolean,
+	Update: (runtime: Runtime, dt: number) -> (),
+	HandleEvent: (runtime: Runtime, event: ObjectiveEvent) -> (),
+	Label: (definition: Types.MissionObjective) -> string,
+}
+
+local Modules: {
+	[string]: {
+		Label: (definition: Types.MissionObjective) -> string,
+		Required: (definition: Types.MissionObjective) -> number,
+		Update: (runtime: Runtime, dt: number) -> (),
+		HandleEvent: (runtime: Runtime, event: ObjectiveEvent) -> (),
+	},
+} =
+	{
+		Survive = require(script.Parent.Objectives.Survive),
+		KillEnemy = require(script.Parent.Objectives.KillEnemy),
+		KillElite = require(script.Parent.Objectives.KillElite),
+		DefeatBoss = require(script.Parent.Objectives.DefeatBoss),
+	}
+
+local ObjectiveSystem = {}
+
+function ObjectiveSystem.create(definition: Types.MissionObjective): Runtime
+	local module = Modules[definition.Type]
+	if not module then
+		error(`[ObjectiveSystem] tipo de objetivo desconocido {tostring(definition.Type)}`)
+	end
+	return {
+		Definition = definition,
+		Required = module.Required(definition),
+		Current = 0,
+		Complete = false,
+		Update = module.Update,
+		HandleEvent = module.HandleEvent,
+		Label = module.Label,
+	}
+end
+
+function ObjectiveSystem.createAll(definitions: { Types.MissionObjective }): { Runtime }
+	local runtimes: { Runtime } = {}
+	for _, definition in definitions do
+		table.insert(runtimes, ObjectiveSystem.create(definition))
+	end
+	return runtimes
+end
+
+function ObjectiveSystem.update(runtimes: { Runtime }, dt: number)
+	for _, runtime in runtimes do
+		runtime.Update(runtime, dt)
+	end
+end
+
+function ObjectiveSystem.dispatch(runtimes: { Runtime }, event: ObjectiveEvent)
+	for _, runtime in runtimes do
+		if not runtime.Complete then
+			runtime.HandleEvent(runtime, event)
+		end
+	end
+end
+
+-- Todos los objetivos son obligatorios en el modo actual ("All"). Si una misión
+-- futura necesita "Sequential"/"Some", se añade aquí sin tocar los objetivos.
+function ObjectiveSystem.allComplete(runtimes: { Runtime }): boolean
+	for _, runtime in runtimes do
+		if not runtime.Complete then
+			return false
+		end
+	end
+	return true
+end
+
+function ObjectiveSystem.view(runtime: Runtime): Types.MissionObjectiveState
+	return {
+		Type = runtime.Definition.Type,
+		Label = runtime.Label(runtime.Definition),
+		Current = runtime.Current,
+		Required = runtime.Required,
+		Complete = runtime.Complete,
+	}
+end
+
+-- Descripción sin estado, para el panel de selección: etiqueta y total de un
+-- objetivo antes de que exista una ejecución.
+function ObjectiveSystem.staticView(
+	definition: Types.MissionObjective
+): { Type: Types.MissionObjectiveType, Label: string, Required: number }
+	local runtime = ObjectiveSystem.create(definition)
+	return {
+		Type = definition.Type,
+		Label = runtime.Label(definition),
+		Required = runtime.Required,
+	}
+end
+
+return ObjectiveSystem
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="Folder" referent="80">
+          <Properties>
+            <string name="Name">Objectives</string>
+          </Properties>
+          <Item class="ModuleScript" referent="81">
+            <Properties>
+              <string name="Name">DefeatBoss</string>
+              <string name="Source"><![CDATA[--!strict
+-- Objetivo: derrotar al jefe indicado (etiqueta "boss" en la definición). Se apoya
+-- en el mismo evento de muerte que el resto: no conoce BossSystem ni la misión.
+local DefeatBoss = {}
+
+function DefeatBoss.Label(definition): string
+	return string.format("Derrota al jefe (%s)", definition.TargetId or "?")
+end
+
+function DefeatBoss.Required(): number
+	return 1
+end
+
+function DefeatBoss.Update() end
+
+function DefeatBoss.HandleEvent(runtime, event)
+	if runtime.Complete or event.Kind ~= "Kill" then
+		return
+	end
+	local enemy = event.Enemy
+	if not table.find(enemy.Tags, "boss") then
+		return
+	end
+	if runtime.Definition.TargetId and enemy.Id ~= runtime.Definition.TargetId then
+		return
+	end
+	runtime.Complete = true
+	runtime.Current = runtime.Required
+end
+
+return DefeatBoss
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="82">
+            <Properties>
+              <string name="Name">KillElite</string>
+              <string name="Source"><![CDATA[--!strict
+-- Objetivo: eliminar N enemigos de élite (etiqueta "elite" en la definición).
+local KillElite = {}
+
+function KillElite.Label(definition): string
+	return string.format("Elimina %d élite(s)", definition.Amount or 1)
+end
+
+function KillElite.Required(definition): number
+	return math.max(1, definition.Amount or 1)
+end
+
+function KillElite.Update() end
+
+function KillElite.HandleEvent(runtime, event)
+	if runtime.Complete or event.Kind ~= "Kill" then
+		return
+	end
+	if not table.find(event.Enemy.Tags, "elite") then
+		return
+	end
+	runtime.Current += 1
+	if runtime.Current >= runtime.Required then
+		runtime.Complete = true
+	end
+end
+
+return KillElite
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="83">
+            <Properties>
+              <string name="Name">KillEnemy</string>
+              <string name="Source"><![CDATA[--!strict
+-- Objetivo: eliminar N enemigos (opcionalmente de un `TargetId` concreto).
+local KillEnemy = {}
+
+function KillEnemy.Label(definition): string
+	if definition.TargetId then
+		return string.format("Elimina %d x %s", definition.Amount or 1, definition.TargetId)
+	end
+	return string.format("Elimina %d enemigos", definition.Amount or 1)
+end
+
+function KillEnemy.Required(definition): number
+	return math.max(1, definition.Amount or 1)
+end
+
+function KillEnemy.Update() end
+
+function KillEnemy.HandleEvent(runtime, event)
+	if runtime.Complete or event.Kind ~= "Kill" then
+		return
+	end
+	local definition = runtime.Definition
+	local enemy = event.Enemy
+	if definition.TargetId and enemy.Id ~= definition.TargetId then
+		return
+	end
+	runtime.Current += 1
+	if runtime.Current >= runtime.Required then
+		runtime.Complete = true
+	end
+end
+
+return KillEnemy
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="84">
+            <Properties>
+              <string name="Name">Survive</string>
+              <string name="Source"><![CDATA[--!strict
+-- Objetivo: sobrevivir N segundos. Puro: no conoce Roblox ni la misión.
+--
+-- Interfaz de objetivo (ver ObjectiveSystem):
+--   Label(definition) -> string        texto para la UI
+--   Required(definition) -> number     total normalizado
+--   Update(runtime, dt)                avance por tiempo
+--   HandleEvent(runtime, event)        avance por evento de gameplay
+local Survive = {}
+
+function Survive.Label(definition): string
+	return string.format("Sobrevive %d s", math.floor(definition.Duration or 0))
+end
+
+function Survive.Required(definition): number
+	return math.max(1, definition.Duration or 1)
+end
+
+function Survive.Update(runtime, dt: number)
+	if runtime.Complete then
+		return
+	end
+	runtime.Current = math.min(runtime.Required, runtime.Current + dt)
+	if runtime.Current >= runtime.Required then
+		runtime.Complete = true
+	end
+end
+
+function Survive.HandleEvent() end
+
+return Survive
+]]></string>
+            </Properties>
+          </Item>
+        </Item>
+        <Item class="ModuleScript" referent="85">
+          <Properties>
+            <string name="Name">RewardSystem</string>
+            <string name="Source"><![CDATA[--!strict
+-- Aplica las recompensas de una misión completada. Solo corre en el servidor y solo
+-- desde `MissionManager` tras una victoria real: no existe ninguna ruta por la que
+-- el cliente pueda pedir recompensas.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Types = require(Shared:WaitForChild("Types"))
+local Profile = require(script.Parent.Parent.Data.Profile)
+
+local RewardSystem = {}
+
+-- Devuelve la moneda total repartida (0 si `rewards.Currency <= 0`).
+function RewardSystem.grant(rewards: Types.MissionRewards, players: { Player }?): number
+	local recipients = players or Players:GetPlayers()
+	local total = 0
+	for _, player in recipients do
+		total += Profile.addCurrency(player, rewards.Currency)
+	end
+	return total
+end
+
+return RewardSystem
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="86">
+          <Properties>
+            <string name="Name">UnlockSystem</string>
+            <string name="Source"><![CDATA[--!strict
+-- Aplica los desbloqueos de una misión completada. Separado de RewardSystem para que
+-- `MissionManager` no acumule la responsabilidad de toda la progresión.
+--
+-- Devuelve solo lo desbloqueado de verdad (primera vez), para informar al cliente sin
+-- repetir avisos en reintentos.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Types = require(Shared:WaitForChild("Types"))
+local Profile = require(script.Parent.Parent.Data.Profile)
+
+export type Applied = {
+	Missions: { string },
+	Maps: { string },
+}
+
+local UnlockSystem = {}
+
+function UnlockSystem.apply(rewards: Types.MissionRewards, players: { Player }?): Applied
+	local recipients = players or Players:GetPlayers()
+	local missions: { [string]: boolean } = {}
+	local maps: { [string]: boolean } = {}
+
+	for _, player in recipients do
+		for _, missionId in rewards.MissionUnlocks do
+			if Profile.unlockMission(player, missionId) then
+				missions[missionId] = true
+			end
+		end
+		for _, mapId in rewards.MapUnlocks do
+			if Profile.unlockMap(player, mapId) then
+				maps[mapId] = true
+			end
+		end
+	end
+
+	local unlockedMissions: { string } = {}
+	for id in missions do
+		table.insert(unlockedMissions, id)
+	end
+	table.sort(unlockedMissions)
+
+	local unlockedMaps: { string } = {}
+	for id in maps do
+		table.insert(unlockedMaps, id)
+	end
+	table.sort(unlockedMaps)
+
+	return { Missions = unlockedMissions, Maps = unlockedMaps }
+end
+
+return UnlockSystem
+]]></string>
+          </Properties>
+        </Item>
+      </Item>
+      <Item class="Folder" referent="87">
         <Properties>
           <string name="Name">Pickups</string>
         </Properties>
-        <Item class="ModuleScript" referent="64">
+        <Item class="ModuleScript" referent="88">
           <Properties>
             <string name="Name">XPPickups</string>
             <string name="Source"><![CDATA[--!strict
@@ -4050,7 +5937,7 @@ return XPPickups
           </Properties>
         </Item>
       </Item>
-      <Item class="ModuleScript" referent="65">
+      <Item class="ModuleScript" referent="89">
         <Properties>
           <string name="Name">PlayerAvatar</string>
           <string name="Source"><![CDATA[--!strict
@@ -4149,11 +6036,11 @@ return PlayerAvatar
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="66">
+      <Item class="Folder" referent="90">
         <Properties>
           <string name="Name">Progression</string>
         </Properties>
-        <Item class="ModuleScript" referent="67">
+        <Item class="ModuleScript" referent="91">
           <Properties>
             <string name="Name">LevelUp</string>
             <string name="Source"><![CDATA[--!strict
@@ -4251,7 +6138,7 @@ return LevelUp
           </Properties>
         </Item>
       </Item>
-      <Item class="ModuleScript" referent="68">
+      <Item class="ModuleScript" referent="92">
         <Properties>
           <string name="Name">Run</string>
           <string name="Source"><![CDATA[--!strict
@@ -4332,11 +6219,11 @@ return Run
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="69">
+      <Item class="Folder" referent="93">
         <Properties>
           <string name="Name">Spawning</string>
         </Properties>
-        <Item class="ModuleScript" referent="70">
+        <Item class="ModuleScript" referent="94">
           <Properties>
             <string name="Name">Difficulty</string>
             <string name="Source"><![CDATA[--!strict
@@ -4357,21 +6244,36 @@ export type Profile = {
 
 local Difficulty = {}
 
-function Difficulty.evaluate(elapsedSeconds: number): Profile
+-- Evaluate difficulty with optional mission missionMultipliers The default config is a
+-- straight function of elapsed time; a mission can ease that curve or boost
+-- particular stats. The returned profile is the single channel between
+-- difficulty and spawners.
+function Difficulty.evaluate(
+	elapsedSeconds: number,
+	multipliers: {
+		EnemyHealthMultiplier: number?,
+		EnemyDamageMultiplier: number?,
+		EnemySpawnRateMultiplier: number?,
+	}?
+): Profile
 	local minutes = math.max(0, elapsedSeconds) / 60
+	local settings = multipliers or {}
+	-- `EnemySpawnRateMultiplier > 1` = más presión: el intervalo BAJA y la tanda y el
+	-- tope de vivos SUBEN. No toca la velocidad: una misión no debe volver a los
+	-- enemigos más rápidos por el simple hecho de spawnear más.
+	local rate = math.max(0.05, settings.EnemySpawnRateMultiplier or 1)
+	local baseInterval = Config.Spawn.BaseInterval - minutes * Config.Spawn.IntervalDecayPerMinute
+	local baseAlive = Config.Spawn.BaseMaxAlive + minutes * Config.Spawn.MaxAlivePerMinute
 	return {
-		health = 1 + minutes * Config.Scaling.HealthPerMinute,
+		health = (1 + minutes * Config.Scaling.HealthPerMinute) * (settings.EnemyHealthMultiplier or 1),
 		speed = math.min(Config.Scaling.MaxSpeedMultiplier, 1 + minutes * Config.Scaling.SpeedPerMinute),
-		damage = 1 + minutes * Config.Scaling.DamagePerMinute,
-		spawnInterval = math.max(
-			Config.Spawn.MinInterval,
-			Config.Spawn.BaseInterval - minutes * Config.Spawn.IntervalDecayPerMinute
+		damage = (1 + minutes * Config.Scaling.DamagePerMinute) * (settings.EnemyDamageMultiplier or 1),
+		spawnInterval = math.max(Config.Spawn.MinInterval, baseInterval / rate),
+		batchSize = math.max(
+			1,
+			math.floor((Config.Spawn.BaseBatch + minutes * Config.Spawn.BatchPerMinute) * rate)
 		),
-		batchSize = math.max(1, math.floor(Config.Spawn.BaseBatch + minutes * Config.Spawn.BatchPerMinute)),
-		maxAlive = math.max(
-			Config.Spawn.BaseMaxAlive,
-			math.floor(Config.Spawn.BaseMaxAlive + minutes * Config.Spawn.MaxAlivePerMinute)
-		),
+		maxAlive = math.max(Config.Spawn.BaseMaxAlive, math.floor(baseAlive * rate)),
 	}
 end
 
@@ -4379,24 +6281,33 @@ return Difficulty
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="71">
+        <Item class="ModuleScript" referent="95">
           <Properties>
             <string name="Name">EnemySpawner</string>
             <string name="Source"><![CDATA[--!strict
 -- Spawner independiente del GameManager. Decide qué aparece, cuándo y dónde, pero
 -- no sabe nada de comportamiento ni de daño: solo llama a EnemyRegistry.spawn.
+--
+-- La configuración de enemigos llega desde la misión (`setConfiguration`) y es el
+-- único canal entre contenido y spawn: añadir una misión no toca este archivo.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
+local Registry = require(Shared:WaitForChild("Registry"))
+local Types = require(Shared:WaitForChild("Types"))
 local PlayerAvatar = require(script.Parent.Parent.PlayerAvatar)
 local Difficulty = require(script.Parent.Difficulty)
 local EnemyRegistry = require(script.Parent.Parent.Enemies.EnemyRegistry)
 
--- Lista de contenido: añadir un enemigo nuevo es añadir una línea aquí.
-local GROUPS: { { enemyId: string, firstAt: number, weight: number } } = {
-	{ enemyId = "basic", firstAt = 0, weight = 1 },
+type Group = { enemyId: string, weight: number }
+
+-- Lista por defecto cuando no hay misión activa (Fase 1): un único enemigo básico.
+local DEFAULT_GROUPS: { Group } = {
+	{ enemyId = "basic", weight = 1 },
 }
 
+local activeGroups: { Group }? = nil
+local activeMultipliers: Types.MissionDifficulty? = nil
 local nextSpawnAt = 0
 
 local EnemySpawner = {}
@@ -4405,28 +6316,58 @@ function EnemySpawner.reset(now: number)
 	nextSpawnAt = now + Config.Run.EnemySpawnGrace
 end
 
-local function pickEnemyId(elapsed: number): string?
-	local candidates = {}
-	local total = 0
-	for _, group in GROUPS do
-		if elapsed >= group.firstAt then
-			table.insert(candidates, group)
-			total += group.weight
+-- Traduce la configuración de la misión a la lista ponderada que usa el spawner.
+-- Deshabilitar un enemigo o darle peso 0 lo saca del sorteo; `EliteChance` es un
+-- multiplicador de peso sobre los enemigos etiquetados "elite".
+function EnemySpawner.setConfiguration(
+	enemyConfiguration: Types.EnemyConfiguration,
+	multipliers: Types.MissionDifficulty
+)
+	local groups: { Group } = {}
+	for enemyId, entry in enemyConfiguration do
+		if entry.Enabled and entry.Weight > 0 then
+			local definition = Registry.Enemies[enemyId]
+			local weight = entry.Weight
+			if multipliers.EliteChance and definition and table.find(definition.Tags, "elite") then
+				weight *= 1 + multipliers.EliteChance
+			end
+			table.insert(groups, { enemyId = enemyId, weight = weight })
 		end
 	end
-	if #candidates == 0 then
+	table.sort(groups, function(a, b)
+		return a.enemyId < b.enemyId
+	end)
+	activeGroups = groups
+	activeMultipliers = multipliers
+end
+
+function EnemySpawner.clearConfiguration()
+	activeGroups = nil
+	activeMultipliers = nil
+end
+
+function EnemySpawner.hasConfiguration(): boolean
+	return activeGroups ~= nil
+end
+
+local function pickEnemyId(groups: { Group }): string?
+	local total = 0
+	for _, group in groups do
+		total += group.weight
+	end
+	if total <= 0 then
 		return nil
 	end
 
 	local target = math.random() * total
 	local accumulated = 0
-	for _, group in candidates do
+	for _, group in groups do
 		accumulated += group.weight
 		if target <= accumulated then
 			return group.enemyId
 		end
 	end
-	return candidates[#candidates].enemyId
+	return groups[#groups].enemyId
 end
 
 local function randomSpawnPoint(): Vector3?
@@ -4452,14 +6393,15 @@ function EnemySpawner.update(now: number, elapsed: number)
 		return
 	end
 
-	local profile = Difficulty.evaluate(elapsed)
+	local groups = activeGroups or DEFAULT_GROUPS
+	local profile = Difficulty.evaluate(elapsed, activeMultipliers)
 	nextSpawnAt = now + profile.spawnInterval
 
 	for _ = 1, profile.batchSize do
 		if EnemyRegistry.count() >= profile.maxAlive then
 			return
 		end
-		local enemyId = pickEnemyId(elapsed)
+		local enemyId = pickEnemyId(groups)
 		local position = randomSpawnPoint()
 		if enemyId and position then
 			EnemyRegistry.spawn(enemyId, position, profile)
@@ -4472,7 +6414,7 @@ return EnemySpawner
           </Properties>
         </Item>
       </Item>
-      <Item class="ModuleScript" referent="72">
+      <Item class="ModuleScript" referent="96">
         <Properties>
           <string name="Name">Stats</string>
           <string name="Source"><![CDATA[--!strict
@@ -4606,11 +6548,11 @@ return Stats
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="73">
+      <Item class="Folder" referent="97">
         <Properties>
           <string name="Name">Utility</string>
         </Properties>
-        <Item class="ModuleScript" referent="74">
+        <Item class="ModuleScript" referent="98">
           <Properties>
             <string name="Name">Pool</string>
             <string name="Source"><![CDATA[--!strict
@@ -4686,28 +6628,259 @@ return Pool
       </Item>
     </Item>
   </Item>
-  <Item class="SoundService" referent="75">
+  <Item class="SoundService" referent="99">
     <Properties>
       <string name="Name">SoundService</string>
     </Properties>
   </Item>
-  <Item class="StarterPlayer" referent="76">
+  <Item class="StarterPlayer" referent="100">
     <Properties>
       <string name="Name">StarterPlayer</string>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="77">
+    <Item class="StarterPlayerScripts" referent="101">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="78">
+      <Item class="Folder" referent="102">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="Folder" referent="79">
+        <Item class="Folder" referent="103">
+          <Properties>
+            <string name="Name">Admin</string>
+          </Properties>
+          <Item class="ModuleScript" referent="104">
+            <Properties>
+              <string name="Name">AdminMenu</string>
+              <string name="Source"><![CDATA[--!strict
+-- Menú de administración del cliente, SOLO en Studio. Botones de playtest que
+-- envían comandos al servidor; el servidor valida cada uno (Admin.luau), el menú
+-- solo pide. Se alterna con F2 y no se construye en builds de producción.
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Registry = require(Shared:WaitForChild("Registry"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
+local Types = require(Shared:WaitForChild("Types"))
+local UIKit = require(script.Parent.Parent.UI.UIKit)
+
+type RunSnapshot = Types.RunSnapshot
+
+local AdminMenu = {}
+
+local ROW = 28
+local GAP = 4
+local TITLE_HEIGHT = 34
+local MAIN_BUTTONS = 4
+local PANEL_WIDTH = 310
+local PANEL_HEIGHT = 560
+
+local weaponLevelLabels: { [string]: TextLabel } = {}
+local upgradeLevelLabels: { [string]: TextLabel } = {}
+
+local function mainButton(parent: Frame, y: number, text: string, command: string, value: unknown?)
+	local row = Instance.new("TextButton")
+	row.Name = command
+	row.Size = UDim2.new(1, -16, 0, ROW)
+	row.Position = UDim2.new(0, 8, 0, y)
+	row.BackgroundColor3 = Color3.fromRGB(38, 44, 58)
+	row.BackgroundTransparency = 0.08
+	row.BorderSizePixel = 0
+	row.Text = text
+	row.TextColor3 = Color3.fromRGB(230, 235, 245)
+	row.TextSize = 14
+	row.Font = Enum.Font.GothamBold
+	row.AutoButtonColor = true
+	row.Parent = parent
+	UIKit.corner(row, UDim.new(0, 8))
+	row.Activated:Connect(function()
+		Remotes.AdminCommand:FireServer(command, value)
+	end)
+end
+
+--Header within the scrolling list: small, muted, uppercase.
+local function section(parent: Instance, text: string)
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, -16, 0, 18)
+	label.BackgroundTransparency = 1
+	label.Text = "—— " .. string.upper(text) .. " ——"
+	label.TextColor3 = Color3.fromRGB(114, 124, 148)
+	label.TextSize = 10
+	label.Font = Enum.Font.GothamBold
+	label.TextXAlignment = Enum.TextXAlignment.Center
+	label.Parent = parent
+end
+
+-- Row inside the scrolling list: name on the left, current level in the middle,
+-- and a "+1" button that asks the server for exactly one more level.
+local function itemRow(parent: Instance, name: string, command: string, id: string)
+	local row = Instance.new("Frame")
+	row.Size = UDim2.new(1, -4, 0, ROW)
+	row.BackgroundColor3 = Color3.fromRGB(34, 40, 54)
+	row.BackgroundTransparency = 0.12
+	row.BorderSizePixel = 0
+	row.Parent = parent
+	UIKit.corner(row, UDim.new(0, 6))
+
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Size = UDim2.new(0.55, 0, 1, 0)
+	nameLabel.Position = UDim2.new(0, 10, 0, 0)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.Text = name
+	nameLabel.TextColor3 = Color3.fromRGB(228, 232, 240)
+	nameLabel.TextSize = 13
+	nameLabel.Font = Enum.Font.Gotham
+	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+	nameLabel.Parent = row
+
+	local lvl = Instance.new("TextLabel")
+	lvl.Size = UDim2.new(0.2, 0, 1, 0)
+	lvl.Position = UDim2.new(0.58, 0, 0, 0)
+	lvl.BackgroundTransparency = 1
+	lvl.Text = "0"
+	lvl.TextColor3 = Color3.fromRGB(155, 165, 190)
+	lvl.TextSize = 12
+	lvl.Font = Enum.Font.GothamBold
+	lvl.TextXAlignment = Enum.TextXAlignment.Right
+	lvl.Parent = row
+	if command == "level_up" then
+		weaponLevelLabels[id] = lvl
+	else
+		upgradeLevelLabels[id] = lvl
+	end
+
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(0.18, 0, 0.7, 0)
+	btn.Position = UDim2.new(0.8, 0, 0.15, 0)
+	btn.BackgroundColor3 = Color3.fromRGB(58, 118, 215)
+	btn.BorderSizePixel = 0
+	btn.Text = "+1"
+	btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	btn.TextSize = 13
+	btn.Font = Enum.Font.GothamBold
+	btn.AutoButtonColor = true
+	btn.Parent = row
+	UIKit.corner(btn, UDim.new(0, 6))
+	btn.Activated:Connect(function()
+		Remotes.AdminCommand:FireServer(command, id)
+	end)
+end
+
+function AdminMenu.build()
+	if not RunService:IsStudio() then
+		return
+	end
+
+	local gui = UIKit.screen("AdminMenu", 60)
+	local bar = UIKit.frame(
+		gui,
+		"Bar",
+		UDim2.new(0, PANEL_WIDTH, 0, PANEL_HEIGHT),
+		UDim2.new(0, 12, 0, 12),
+		Vector2.new(0, 0),
+		Color3.fromRGB(14, 16, 22)
+	)
+	UIKit.corner(bar, UDim.new(0, 10))
+	UIKit.stroke(bar, Color3.fromRGB(255, 214, 92), 1)
+
+	-- Título de la barra
+	UIKit.label(
+		bar,
+		"Title",
+		"DEV · ADMIN",
+		UDim2.new(1, -16, 0, 20),
+		UDim2.new(0, 12, 0, 7),
+		nil,
+		Color3.fromRGB(255, 214, 92),
+		true
+	)
+
+	UIKit.label(
+		bar,
+		"Subtitle",
+		"+1 por arma / mejora · F2 para ocultar",
+		UDim2.new(1, -16, 0, 14),
+		UDim2.new(0, 12, 0, 24),
+		nil,
+		Color3.fromRGB(140, 150, 170),
+		false
+	)
+
+	mainButton(bar, TITLE_HEIGHT, "Desbloquear todo", "unlock_all")
+	mainButton(bar, TITLE_HEIGHT + (ROW + GAP), "Armas y mejoras al tope", "max_all")
+	mainButton(bar, TITLE_HEIGHT + (ROW + GAP) * 2, "+500 XP", "grant_xp", 500)
+	mainButton(bar, TITLE_HEIGHT + (ROW + GAP) * 3, "Curar", "heal")
+
+	-- Lista desplazable de armas y mejoras.
+	local list = Instance.new("ScrollingFrame")
+	list.Name = "WeaponList"
+	list.Size = UDim2.new(1, -24, 1, -TITLE_HEIGHT - 20 - MAIN_BUTTONS * (ROW + GAP) - GAP)
+	list.Position = UDim2.new(0, 12, 0, TITLE_HEIGHT + 20 + MAIN_BUTTONS * (ROW + GAP))
+	list.BackgroundColor3 = Color3.fromRGB(11, 13, 19)
+	list.BackgroundTransparency = 0.35
+	list.BorderSizePixel = 0
+	list.CanvasSize = UDim2.new(0, 0, 0, 0)
+	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	list.ScrollBarThickness = 8
+	list.Parent = bar
+	UIKit.corner(list, UDim.new(0, 6))
+
+	local layout = Instance.new("UIListLayout")
+	layout.Padding = UDim.new(0, GAP)
+	layout.Parent = list
+
+	section(list, "Armas")
+	for weaponId, weapon in pairs(Registry.Weapons) do
+		itemRow(list, weapon.Name, "level_up", weaponId)
+	end
+
+	section(list, "Mejoras")
+	for upgradeId, upgrade in pairs(Registry.Upgrades) do
+		if upgrade.Kind == "NewWeapon" then
+			continue
+		end
+		itemRow(list, upgrade.Name, "upgrade_level_up", upgradeId)
+	end
+
+	-- Refresca el nivel actual de cada fila cuando el servidor empuja un
+	-- snapshot nuevo.
+	Remotes.RunSnapshot.OnClientEvent:Connect(function(snapshot: RunSnapshot)
+		for _, weapon in snapshot.Weapons do
+			local lab = weaponLevelLabels[weapon.Id]
+			if lab then
+				lab.Text = `${weapon.Level}/${weapon.MaxLevel}`
+			end
+		end
+		for _, passive in snapshot.Passives do
+			local lab = upgradeLevelLabels[passive.Id]
+			if lab then
+				lab.Text = `${passive.Level}/${passive.MaxLevel}`
+			end
+		end
+	end)
+
+	-- F2 para apartarlo o volverlo a traer durante la prueba.
+	UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
+		if processed then
+			return
+		end
+		if input.KeyCode == Enum.KeyCode.F2 then
+			gui.Enabled = not gui.Enabled
+		end
+	end)
+end
+
+return AdminMenu
+]]></string>
+            </Properties>
+          </Item>
+        </Item>
+        <Item class="Folder" referent="105">
           <Properties>
             <string name="Name">Camera</string>
           </Properties>
-          <Item class="ModuleScript" referent="80">
+          <Item class="ModuleScript" referent="106">
             <Properties>
               <string name="Name">TopDownCamera</string>
               <string name="Source"><![CDATA[--!strict
@@ -4769,11 +6942,11 @@ return TopDownCamera
             </Properties>
           </Item>
         </Item>
-        <Item class="Folder" referent="81">
+        <Item class="Folder" referent="107">
           <Properties>
             <string name="Name">Input</string>
           </Properties>
-          <Item class="ModuleScript" referent="82">
+          <Item class="ModuleScript" referent="108">
             <Properties>
               <string name="Name">RunInput</string>
               <string name="Source"><![CDATA[--!strict
@@ -4811,7 +6984,7 @@ return RunInput
             </Properties>
           </Item>
         </Item>
-        <Item class="LocalScript" referent="83">
+        <Item class="LocalScript" referent="109">
           <Properties>
             <string name="Name">Main</string>
             <string name="Source"><![CDATA[--!strict
@@ -4826,21 +6999,36 @@ local RunInput = require(script.Parent.Input.RunInput)
 local Hud = require(script.Parent.UI.Hud)
 local LevelUpPanel = require(script.Parent.UI.LevelUpPanel)
 local ResultPanel = require(script.Parent.UI.ResultPanel)
+local MissionPanel = require(script.Parent.UI.MissionPanel)
+local MissionHud = require(script.Parent.UI.MissionHud)
 local CombatFeedback = require(script.Parent.VFX.CombatFeedback)
+local AdminMenu = require(script.Parent.Admin.AdminMenu)
 
 type MatchState = Types.MatchState
 type RunSnapshot = Types.RunSnapshot
 type UpgradeOffer = Types.UpgradeOffer
+type MissionSummary = Types.MissionSummary
+type MissionSnapshot = Types.MissionSnapshot
+type MissionResult = Types.MissionResult
 
 Hud.build()
 LevelUpPanel.build(function(upgradeId: string)
 	Remotes.RequestUpgrade:FireServer(upgradeId)
 end)
 ResultPanel.build()
+MissionPanel.build(function(missionId: string)
+	Remotes.RequestMission:FireServer(missionId)
+end)
+MissionHud.build()
 CombatFeedback.build()
+AdminMenu.build()
 TopDownCamera.start()
 
 local lastLevel = 1
+local lastElapsed = 0
+local lastResult: MissionResult? = nil
+local lastResultState: MatchState? = nil
+local currentState: MatchState = "Lobby"
 
 Remotes.RunSnapshot.OnClientEvent:Connect(function(snapshot: RunSnapshot)
 	lastLevel = snapshot.Level
@@ -4849,8 +7037,9 @@ end)
 
 Remotes.MatchStateChanged.OnClientEvent:Connect(
 	function(state: MatchState, elapsed: number, offers: { UpgradeOffer }?)
+		currentState = state
 		-- Los estados "Event" y "Boss" también simulan: la partida sigue viva, así que el
-		-- jugador mantiene el control.
+		-- jugador mantiene el control. En "MissionSelect" el panel de misión manda.
 		local simulated = state == "Playing" or state == "Event" or state == "Boss"
 		RunInput.setEnabled(simulated)
 
@@ -4861,12 +7050,41 @@ Remotes.MatchStateChanged.OnClientEvent:Connect(
 		end
 
 		if state == "Defeat" or state == "Victory" then
-			ResultPanel.show(state, elapsed, lastLevel)
+			lastElapsed = elapsed
+			lastResultState = state
+			ResultPanel.show(state, elapsed, lastLevel, lastResult)
 		else
+			lastResultState = nil
 			ResultPanel.hide()
+		end
+
+		MissionPanel.setVisible(state == "MissionSelect")
+		if state == "MissionSelect" then
+			lastResult = nil
 		end
 	end
 )
+
+-- Lista de misiones con el estado de ESTE jugador. El panel solo es visible en el
+-- estado de selección; si la lista llega antes, ya se pinta para cuando toque.
+Remotes.MissionList.OnClientEvent:Connect(function(missions: { MissionSummary })
+	MissionPanel.setMissions(missions)
+	MissionPanel.setVisible(currentState == "MissionSelect")
+end)
+
+Remotes.MissionUpdate.OnClientEvent:Connect(function(snapshot: MissionSnapshot?)
+	MissionHud.apply(snapshot)
+end)
+
+-- Resultado final: se guarda para que la pantalla de resultado lo muestre cuando
+-- llegue el estado Victory/Defeat (viaja en el mismo frame, antes que el estado).
+Remotes.MissionFinished.OnClientEvent:Connect(function(result: MissionResult)
+	lastResult = result
+	-- Si el estado Victory/Defeat llegó antes, se repinta con el resultado ya presente.
+	if lastResultState then
+		ResultPanel.show(lastResultState, lastElapsed, lastLevel, lastResult)
+	end
+end)
 
 Remotes.UpgradeChosen.OnClientEvent:Connect(function(_upgradeId: string)
 	LevelUpPanel.hide()
@@ -4883,11 +7101,11 @@ Remotes.ClientReady:FireServer()
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="84">
+        <Item class="Folder" referent="110">
           <Properties>
             <string name="Name">UI</string>
           </Properties>
-          <Item class="ModuleScript" referent="85">
+          <Item class="ModuleScript" referent="111">
             <Properties>
               <string name="Name">Hud</string>
               <string name="Source"><![CDATA[--!strict
@@ -5104,7 +7322,7 @@ return Hud
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="86">
+          <Item class="ModuleScript" referent="112">
             <Properties>
               <string name="Name">LevelUpPanel</string>
               <string name="Source"><![CDATA[--!strict
@@ -5383,24 +7601,448 @@ return LevelUpPanel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="87">
+          <Item class="ModuleScript" referent="113">
+            <Properties>
+              <string name="Name">MissionHud</string>
+              <string name="Source"><![CDATA[--!strict
+-- HUD de misión: objetivos en curso y barra del jefe. Presentación pura: solo pinta
+-- la instantánea que envía el servidor.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Types = require(Shared:WaitForChild("Types"))
+local Format = require(Shared:WaitForChild("Utilities"):WaitForChild("Format"))
+local UIKit = require(script.Parent.UIKit)
+
+type MissionSnapshot = Types.MissionSnapshot
+
+local PANEL_BG = Color3.fromRGB(14, 16, 22)
+local MUTED = Color3.fromRGB(158, 165, 178)
+
+local gui: ScreenGui? = nil
+local title: TextLabel? = nil
+local clock: TextLabel? = nil
+local objectiveLabel: TextLabel? = nil
+local bossRoot: Frame? = nil
+local bossName: TextLabel? = nil
+local bossBar: { Root: Frame, Fill: Frame }? = nil
+local bossHp: TextLabel? = nil
+
+local MissionHud = {}
+
+function MissionHud.build()
+	gui = UIKit.screen("MissionHud", 11)
+	gui.Enabled = false
+
+	local panel =
+		UIKit.frame(gui, "Objectives", UDim2.new(0, 300, 0, 110), UDim2.new(0, 20, 0, 100), nil, PANEL_BG)
+	local constraint = Instance.new("UISizeConstraint")
+	constraint.MinSize = Vector2.new(220, 90)
+	constraint.MaxSize = Vector2.new(380, 220)
+	constraint.Parent = panel
+
+	title = UIKit.label(
+		panel,
+		"Title",
+		"",
+		UDim2.new(1, -20, 0, 24),
+		UDim2.new(0, 10, 0, 8),
+		nil,
+		Color3.fromRGB(255, 214, 92),
+		true
+	)
+	title.TextSize = 16
+
+	clock = UIKit.label(panel, "Clock", "", UDim2.new(1, -20, 0, 18), UDim2.new(0, 10, 0, 30), nil, MUTED)
+	clock.TextSize = 13
+
+	objectiveLabel = UIKit.label(
+		panel,
+		"Lines",
+		"",
+		UDim2.new(1, -20, 1, -58),
+		UDim2.new(0, 10, 0, 50),
+		nil,
+		Color3.fromRGB(214, 219, 228)
+	)
+	objectiveLabel.TextSize = 14
+	objectiveLabel.TextYAlignment = Enum.TextYAlignment.Top
+
+	-- Barra del jefe: solo aparece cuando hay jefe activo.
+	bossRoot = UIKit.frame(
+		gui,
+		"Boss",
+		UDim2.new(0, 460, 0, 54),
+		UDim2.new(0.5, 0, 1, -120),
+		Vector2.new(0.5, 0),
+		PANEL_BG
+	)
+	bossRoot.Visible = false
+
+	bossName = UIKit.label(
+		bossRoot,
+		"Name",
+		"",
+		UDim2.new(1, -20, 0, 20),
+		UDim2.new(0, 10, 0, 6),
+		nil,
+		Color3.fromRGB(238, 116, 116),
+		true
+	)
+	bossName.TextSize = 15
+
+	bossBar = UIKit.bar(bossRoot, "BossBar", 14, Color3.fromRGB(226, 84, 96))
+	bossBar.Root.Position = UDim2.new(0, 10, 0, 28)
+	bossBar.Root.Size = UDim2.new(1, -20, 0, 14)
+
+	bossHp = UIKit.label(bossRoot, "Hp", "", UDim2.new(1, -20, 0, 14), UDim2.new(0, 10, 0, 40), nil, MUTED)
+	bossHp.TextSize = 11
+	bossHp.TextXAlignment = Enum.TextXAlignment.Right
+end
+
+function MissionHud.apply(snapshot: MissionSnapshot?)
+	if
+		not gui
+		or not title
+		or not clock
+		or not objectiveLabel
+		or not bossRoot
+		or not bossBar
+		or not bossName
+		or not bossHp
+	then
+		return
+	end
+
+	if not snapshot then
+		gui.Enabled = false
+		return
+	end
+
+	gui.Enabled = true
+	title.Text = snapshot.DisplayName
+	clock.Text = if snapshot.Remaining
+		then `{Format.clock(snapshot.Elapsed)}  ·  quedan {Format.clock(snapshot.Remaining)}`
+		else Format.clock(snapshot.Elapsed)
+
+	local lines: { string } = {}
+	for _, objective in snapshot.Objectives do
+		local mark = if objective.Complete then "✔" else "•"
+		local progress = `{math.floor(objective.Current)}/{objective.Required}`
+		table.insert(lines, `{mark} {objective.Label}   {progress}`)
+	end
+	objectiveLabel.Text = table.concat(lines, "\n")
+
+	local boss = snapshot.Boss
+	if boss and boss.Active then
+		bossRoot.Visible = true
+		bossName.Text = boss.Name
+		local ratio = if boss.MaxHealth > 0 then boss.Health / boss.MaxHealth else 0
+		bossBar.Fill.Size = UDim2.new(math.clamp(ratio, 0, 1), 0, 1, 0)
+		bossHp.Text = `{math.ceil(boss.Health)} / {math.ceil(boss.MaxHealth)}`
+	else
+		bossRoot.Visible = false
+	end
+end
+
+return MissionHud
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="114">
+            <Properties>
+              <string name="Name">MissionPanel</string>
+              <string name="Source"><![CDATA[--!strict
+-- Panel de selección de misión. Presentación pura: pinta los resúmenes que envía el
+-- servidor y manda una petición al pulsar. Nunca cambia el estado ni concede nada.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Types = require(Shared:WaitForChild("Types"))
+local UIKit = require(script.Parent.UIKit)
+
+type MissionSummary = Types.MissionSummary
+
+local PANEL_BG = Color3.fromRGB(14, 16, 22)
+local CARD_BG = Color3.fromRGB(22, 25, 33)
+local MUTED = Color3.fromRGB(158, 165, 178)
+
+local STATE_COLORS = {
+	Available = Color3.fromRGB(255, 214, 92),
+	Completed = Color3.fromRGB(108, 214, 122),
+	Locked = Color3.fromRGB(120, 126, 138),
+}
+
+local STATE_TEXT = {
+	Available = "DISPONIBLE",
+	Completed = "COMPLETADA",
+	Locked = "BLOQUEADA",
+}
+
+local gui: ScreenGui? = nil
+local list: ScrollingFrame? = nil
+local onStart: ((string) -> ())? = nil
+local missions: { MissionSummary } = {}
+local visible = false
+
+local MissionPanel = {}
+
+local function buildRewardText(mission: MissionSummary): string
+	local parts: { string } = {}
+	if mission.Rewards.Currency > 0 then
+		table.insert(parts, `+{mission.Rewards.Currency} moneda`)
+	end
+	for _, unlocked in mission.Rewards.Missions do
+		table.insert(parts, `Desbloquea {unlocked}`)
+	end
+	for _, unlocked in mission.Rewards.Maps do
+		table.insert(parts, `Nuevo mapa: {unlocked}`)
+	end
+	if #parts == 0 then
+		return ""
+	end
+	return "Recompensas: " .. table.concat(parts, "  ·  ")
+end
+
+local function buildCard(mission: MissionSummary, index: number)
+	if not list then
+		return
+	end
+
+	local objectives: { string } = {}
+	for _, objective in mission.Objectives do
+		table.insert(objectives, `• {objective.Label} ({objective.Required})`)
+	end
+
+	local height = 96 + math.max(1, #objectives) * 18
+	local card = UIKit.frame(
+		list,
+		`Mission_{mission.Id}`,
+		UDim2.new(1, -14, 0, height),
+		UDim2.new(0, 0, 0, 0),
+		nil,
+		CARD_BG
+	)
+	card.LayoutOrder = index
+
+	local accent = STATE_COLORS[mission.State] or MUTED
+	local strip = UIKit.frame(card, "Strip", UDim2.new(0, 5, 1, 0), UDim2.new(0, 0, 0, 0), nil, accent)
+	strip.BackgroundTransparency = 0
+
+	local title = UIKit.label(
+		card,
+		"Title",
+		mission.DisplayName,
+		UDim2.new(1, -180, 0, 26),
+		UDim2.new(0, 16, 0, 8),
+		nil,
+		Color3.fromRGB(240, 243, 250),
+		true
+	)
+	title.TextSize = 18
+
+	local meta = UIKit.label(
+		card,
+		"Meta",
+		`{mission.MapName}  ·  {mission.Duration > 0 and ("objetivo " .. mission.Duration .. "s") or "jefe"}`,
+		UDim2.new(1, -180, 0, 18),
+		UDim2.new(0, 16, 0, 32),
+		nil,
+		MUTED
+	)
+	meta.TextSize = 13
+
+	local stateLabel = UIKit.label(
+		card,
+		"State",
+		STATE_TEXT[mission.State] or mission.State,
+		UDim2.new(0, 150, 0, 20),
+		UDim2.new(1, -160, 0, 12),
+		nil,
+		accent,
+		true
+	)
+	stateLabel.TextSize = 13
+
+	local objectiveLabel = UIKit.label(
+		card,
+		"Objectives",
+		table.concat(objectives, "\n"),
+		UDim2.new(1, -180, 0, #objectives * 18),
+		UDim2.new(0, 16, 0, 54),
+		nil,
+		Color3.fromRGB(198, 204, 216)
+	)
+	objectiveLabel.TextSize = 13
+
+	local description = UIKit.label(
+		card,
+		"Description",
+		mission.Description,
+		UDim2.new(1, -180, 1, -70),
+		UDim2.new(0, 16, 0, 54 + #objectives * 18),
+		nil,
+		MUTED
+	)
+	description.TextSize = 12
+
+	local rewards = UIKit.label(
+		card,
+		"Rewards",
+		buildRewardText(mission),
+		UDim2.new(1, -32, 0, 16),
+		UDim2.new(0, 16, 1, -22),
+		nil,
+		Color3.fromRGB(214, 186, 122)
+	)
+	rewards.TextSize = 12
+
+	if mission.State == "Available" then
+		local button = Instance.new("TextButton")
+		button.Name = "Start"
+		button.Size = UDim2.new(0, 130, 0, 34)
+		button.Position = UDim2.new(1, -150, 1, -46)
+		button.BackgroundColor3 = accent
+		button.BorderSizePixel = 0
+		button.AutoButtonColor = true
+		button.Font = Enum.Font.GothamBold
+		button.Text = "EMPEZAR"
+		button.TextColor3 = Color3.fromRGB(18, 20, 26)
+		button.TextSize = 14
+		button.Parent = card
+		UIKit.corner(button, UDim.new(0, 8))
+		button.Activated:Connect(function()
+			if onStart then
+				onStart(mission.Id)
+			end
+		end)
+	end
+end
+
+local function rebuild()
+	if not list then
+		return
+	end
+	for _, child in list:GetChildren() do
+		if child:IsA("GuiObject") then
+			child:Destroy()
+		end
+	end
+	for index, mission in missions do
+		buildCard(mission, index)
+	end
+end
+
+function MissionPanel.build(startHandler: (string) -> ())
+	onStart = startHandler
+
+	gui = UIKit.screen("MissionPanel", 25)
+	gui.Enabled = false
+
+	local dim =
+		UIKit.frame(gui, "Dim", UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), nil, Color3.fromRGB(7, 8, 12))
+	dim.BackgroundTransparency = 0.4
+
+	local panel = UIKit.frame(
+		gui,
+		"Panel",
+		UDim2.new(0, 720, 0, 560),
+		UDim2.new(0.5, 0, 0.5, 0),
+		Vector2.new(0.5, 0.5),
+		PANEL_BG
+	)
+	local constraint = Instance.new("UISizeConstraint")
+	constraint.MinSize = Vector2.new(360, 300)
+	constraint.MaxSize = Vector2.new(820, 640)
+	constraint.Parent = panel
+
+	local title = UIKit.label(
+		panel,
+		"Title",
+		"SELECCIONA MISIÓN",
+		UDim2.new(1, 0, 0, 40),
+		UDim2.new(0, 0, 0, 14),
+		nil,
+		Color3.fromRGB(240, 243, 250),
+		true
+	)
+	title.TextSize = 28
+	title.TextXAlignment = Enum.TextXAlignment.Center
+
+	list = Instance.new("ScrollingFrame")
+	list.Name = "List"
+	list.Size = UDim2.new(1, -20, 1, -76)
+	list.Position = UDim2.new(0, 10, 0, 64)
+	list.BackgroundTransparency = 1
+	list.BorderSizePixel = 0
+	list.ScrollBarThickness = 6
+	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	list.CanvasSize = UDim2.new(0, 0, 0, 0)
+	list.Parent = panel
+
+	local layout = Instance.new("UIListLayout")
+	layout.Name = "Layout"
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Padding = UDim.new(0, 10)
+	layout.Parent = list
+
+	rebuild()
+end
+
+function MissionPanel.setMissions(nextMissions: { MissionSummary })
+	missions = nextMissions
+	rebuild()
+	if gui then
+		gui.Enabled = visible and #missions > 0
+	end
+end
+
+function MissionPanel.setVisible(next: boolean)
+	visible = next
+	if gui then
+		gui.Enabled = visible and #missions > 0
+	end
+end
+
+return MissionPanel
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="115">
             <Properties>
               <string name="Name">ResultPanel</string>
               <string name="Source"><![CDATA[--!strict
--- Fin de partida: derrota o victoria. Solo pinta el estado que recibe del servidor.
+-- Fin de partida: derrota o victoria, con el resultado de misión si lo hay. Solo pinta
+-- lo que recibe del servidor.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Types = require(Shared:WaitForChild("Types"))
 local Format = require(Shared:WaitForChild("Utilities"):WaitForChild("Format"))
 local UIKit = require(script.Parent.UIKit)
+
+type MissionResult = Types.MissionResult
 
 local gui: ScreenGui? = nil
 local title: TextLabel? = nil
 local subtitle: TextLabel? = nil
+local detail: TextLabel? = nil
 
 local ResultPanel = {}
 
+local function rewardText(result: MissionResult): string
+	local parts: { string } = {}
+	if result.Currency > 0 then
+		table.insert(parts, `+{result.Currency} moneda`)
+	end
+	for _, unlocked in result.UnlockedMissions do
+		table.insert(parts, `Nueva misión: {unlocked}`)
+	end
+	for _, unlocked in result.UnlockedMaps do
+		table.insert(parts, `Nuevo mapa: {unlocked}`)
+	end
+	return table.concat(parts, "   ·   ")
+end
+
 function ResultPanel.build()
-	gui = UIKit.screen("ResultPanel", 30)
+	gui = UIKit.screen("ResultPanel", 40)
 	gui.Enabled = false
 
 	local dim =
@@ -5412,7 +8054,7 @@ function ResultPanel.build()
 		"Title",
 		"",
 		UDim2.new(1, 0, 0, 60),
-		UDim2.new(0, 0, 0.34, 0),
+		UDim2.new(0, 0, 0.32, 0),
 		nil,
 		Color3.fromRGB(240, 240, 245),
 		true
@@ -5425,27 +8067,52 @@ function ResultPanel.build()
 		"Subtitle",
 		"",
 		UDim2.new(1, 0, 0, 28),
-		UDim2.new(0, 0, 0.34, 0) + UDim2.new(0, 66, 0, 0)
+		UDim2.new(0, 0, 0.32, 0) + UDim2.new(0, 66, 0, 0)
 	)
 	subtitle.TextSize = 20
 	subtitle.TextColor3 = Color3.fromRGB(206, 210, 220)
 	subtitle.TextXAlignment = Enum.TextXAlignment.Center
+
+	detail = UIKit.label(
+		gui,
+		"Detail",
+		"",
+		UDim2.new(1, -80, 0, 44),
+		UDim2.new(0.5, 0, 0.32, 0) + UDim2.new(0, 104, 0, 0),
+		Vector2.new(0.5, 0),
+		Color3.fromRGB(255, 214, 92),
+		true
+	)
+	detail.TextSize = 17
+	detail.TextXAlignment = Enum.TextXAlignment.Center
 end
 
-function ResultPanel.show(state: string, elapsed: number, level: number)
-	if not gui or not title or not subtitle then
+function ResultPanel.show(state: string, elapsed: number, level: number, result: MissionResult?)
+	if not gui or not title or not subtitle or not detail then
 		return
 	end
 
-	if state == "Defeat" then
-		title.Text = "DERROTA"
-		title.TextColor3 = Color3.fromRGB(238, 116, 116)
-		subtitle.Text = `Nivel {level}  ·  {Format.clock(elapsed)} sobrevividos  ·  reiniciando...`
-		gui.Enabled = true
-	elseif state == "Victory" then
+	if state == "Victory" then
 		title.Text = "VICTORIA"
 		title.TextColor3 = Color3.fromRGB(255, 214, 92)
-		subtitle.Text = `Nivel {level}  ·  {Format.clock(elapsed)} sobrevividos`
+		if result then
+			subtitle.Text = `{result.DisplayName}  ·  Nivel {level}  ·  {Format.clock(elapsed)}`
+			detail.Text = rewardText(result)
+		else
+			subtitle.Text = `Nivel {level}  ·  {Format.clock(elapsed)} sobrevividos`
+			detail.Text = ""
+		end
+		gui.Enabled = true
+	elseif state == "Defeat" then
+		title.Text = "DERROTA"
+		title.TextColor3 = Color3.fromRGB(238, 116, 116)
+		if result and result.Outcome == "Failed" then
+			subtitle.Text = `{result.DisplayName} fallida  ·  Nivel {level}  ·  {Format.clock(elapsed)}`
+			detail.Text = "Sin recompensas. La misión sigue disponible para reintentar."
+		else
+			subtitle.Text = `Nivel {level}  ·  {Format.clock(elapsed)} sobrevividos  ·  reiniciando...`
+			detail.Text = ""
+		end
 		gui.Enabled = true
 	else
 		gui.Enabled = false
@@ -5462,7 +8129,7 @@ return ResultPanel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="88">
+          <Item class="ModuleScript" referent="116">
             <Properties>
               <string name="Name">UIKit</string>
               <string name="Source"><![CDATA[--!strict
@@ -5522,14 +8189,14 @@ function UIKit.frame(
 	return frame
 end
 
-function UIKit.corner(frame: Frame, radius: UDim)
+function UIKit.corner(frame: Instance, radius: UDim)
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = radius
 	corner.Parent = frame
 	return corner
 end
 
-function UIKit.stroke(frame: Frame, color: Color3, thickness: number)
+function UIKit.stroke(frame: Instance, color: Color3, thickness: number)
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = color
 	stroke.Thickness = thickness
@@ -5594,26 +8261,38 @@ return UIKit
             </Properties>
           </Item>
         </Item>
-        <Item class="Folder" referent="89">
+        <Item class="Folder" referent="117">
           <Properties>
             <string name="Name">VFX</string>
           </Properties>
-          <Item class="ModuleScript" referent="90">
+          <Item class="ModuleScript" referent="118">
             <Properties>
               <string name="Name">CombatFeedback</string>
               <string name="Source"><![CDATA[--!strict
 -- Feedback visual de combate. Vive en el cliente a propósito: el servidor ya decidió
--- el impacto y solo manda un aviso descartable. Los emisores y los rayos están en pool
--- y se reciclan con un reloj, así que un impacto no crea ni destruye instancias ni
--- lanza una tarea por evento.
+-- el impacto y solo manda un aviso descartable. Los emisores, los rayos y los anillos
+-- están en pool y se reciclan con un reloj, así que un impacto no crea ni destruye
+-- instancias ni lanza una tarea por evento.
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UIKit = require(script.Parent.Parent.UI.UIKit)
 
 local POOL_SIZE = 14
 local BEAM_POOL_SIZE = 12
+local RING_POOL_SIZE = 6
 local BUSY_SECONDS = 0.6
-local BEAM_BUSY_SECONDS = 0.16
+-- Altura del anillo de choque: un cilindro sobre el suelo que se lee aun con la
+-- cámara top-down.
+local RING_HEIGHT = 1.2
+
+-- Colores de presentación de cada efecto.
+local BOLT = Color3.fromRGB(255, 246, 220)
+local CRIT = Color3.fromRGB(255, 208, 96)
+local DEATH = Color3.fromRGB(226, 96, 96)
+local BLAST = Color3.fromRGB(255, 158, 66)
+local NOVA = Color3.fromRGB(126, 208, 255)
+local CHAIN = Color3.fromRGB(150, 226, 255)
+local SLASH = Color3.fromRGB(224, 242, 255)
 
 type Burst = {
 	Part: Part,
@@ -5621,13 +8300,33 @@ type Burst = {
 	BusyUntil: number,
 }
 
-type Beam = {
+-- Un rayo es un Beam con dos attachments sobre una pieza ancla. Los attachments se
+-- posicionan en el mundo (el CFrame de Attachment es mundial), así que el ancla solo
+-- da un hogar y el Beam se dibuja exactamente entre los dos puntos pedidos.
+type BeamFX = {
+	Part: Part,
+	Beam: Beam,
+	Attach0: Attachment,
+	Attach1: Attachment,
+	BusyUntil: number,
+	FadeStart: number,
+	FadeDuration: number,
+	FadeFrom: number,
+}
+
+-- Anillo expansivo (onda de choque): un cilindro delgado que crece en el suelo y se
+-- funde. Lo comparten la Nova y las explosiones para darle volumen al impacto.
+type Ring = {
 	Part: Part,
 	BusyUntil: number,
+	StartAt: number,
+	Radius: number,
+	FadeFrom: number,
 }
 
 local bursts: { Burst } = {}
-local beams: { Beam } = {}
+local beams: { BeamFX } = {}
+local rings: { Ring } = {}
 local flash: Frame? = nil
 local flashTween: Tween? = nil
 
@@ -5657,11 +8356,10 @@ local function buildBurst(color: Color3): Burst
 	return { Part = part, Emitter = emitter, BusyUntil = 0 }
 end
 
-local function buildBeam(): Beam
+local function buildBeam(): BeamFX
 	local part = Instance.new("Part")
-	part.Name = "ChainBeam"
-	part.Material = Enum.Material.Neon
-	part.Color = Color3.fromRGB(150, 226, 255)
+	part.Name = "BeamAnchor"
+	part.Size = Vector3.new(0.2, 0.2, 0.2)
 	part.Transparency = 1
 	part.Anchored = true
 	part.CanCollide = false
@@ -5669,17 +8367,68 @@ local function buildBeam(): Beam
 	part.CanQuery = false
 	part.CastShadow = false
 	part.Parent = workspace
-	return { Part = part, BusyUntil = 0 }
+
+	local attach0 = Instance.new("Attachment")
+	attach0.Name = "Attach0"
+	local attach1 = Instance.new("Attachment")
+	attach1.Name = "Attach1"
+
+	local beam = Instance.new("Beam")
+	beam.Name = "Beam"
+	beam.Attachment0 = attach0
+	beam.Attachment1 = attach1
+	beam.Color = ColorSequence.new(CHAIN)
+	beam.Transparency = NumberSequence.new(0.2)
+	beam.Width0 = 0.45
+	beam.Width1 = 0.45
+	beam.FaceCamera = true
+	beam.LightEmission = 0.8
+	beam.Brightness = 2
+	beam.Enabled = false
+	beam.Parent = part
+	attach0.Parent = part
+	attach1.Parent = part
+
+	return {
+		Part = part,
+		Beam = beam,
+		Attach0 = attach0,
+		Attach1 = attach1,
+		BusyUntil = 0,
+		FadeStart = 0,
+		FadeDuration = 0,
+		FadeFrom = 0,
+	}
+end
+
+local function buildRing(): Ring
+	local part = Instance.new("Part")
+	part.Name = "Shockwave"
+	part.Shape = Enum.PartType.Cylinder
+	part.Material = Enum.Material.Neon
+	part.Color = NOVA
+	part.Size = Vector3.new(0.3, 0.1, 0.3)
+	part.Transparency = 1
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanTouch = false
+	part.CanQuery = false
+	part.CastShadow = false
+	part.Parent = workspace
+	return { Part = part, BusyUntil = 0, StartAt = 0, Radius = 0, FadeFrom = 0 }
 end
 
 local CombatFeedback = {}
 
 function CombatFeedback.build()
 	for index = 1, POOL_SIZE do
-		bursts[index] = buildBurst(Color3.fromRGB(255, 236, 190))
+		bursts[index] = buildBurst(BOLT)
 	end
 	for index = 1, BEAM_POOL_SIZE do
 		beams[index] = buildBeam()
+	end
+	for index = 1, RING_POOL_SIZE do
+		rings[index] = buildRing()
 	end
 
 	local gui = UIKit.screen("CombatFeedback", 25)
@@ -5697,16 +8446,43 @@ function CombatFeedback.build()
 
 	RunService.RenderStepped:Connect(function()
 		local now = os.clock()
+
 		for _, burst in bursts do
 			if burst.BusyUntil > 0 and now >= burst.BusyUntil then
 				burst.BusyUntil = 0
 				burst.Part.Transparency = 1
 			end
 		end
+
 		for _, beam in beams do
-			if beam.BusyUntil > 0 and now >= beam.BusyUntil then
-				beam.BusyUntil = 0
-				beam.Part.Transparency = 1
+			if beam.BusyUntil > 0 then
+				if now >= beam.BusyUntil then
+					beam.Beam.Enabled = false
+					beam.BusyUntil = 0
+				else
+					-- Fade-out manual: TweenService no puede animar NumberSequence.
+					local t = (now - beam.FadeStart) / beam.FadeDuration
+					local alpha = beam.FadeFrom + (1 - beam.FadeFrom) * t
+					beam.Beam.Transparency = NumberSequence.new(alpha)
+				end
+			end
+		end
+
+		for _, ring in rings do
+			if ring.BusyUntil > 0 then
+				if now >= ring.BusyUntil then
+					ring.Part.Transparency = 1
+					ring.BusyUntil = 0
+				else
+					local duration = ring.BusyUntil - ring.StartAt
+					local t = (now - ring.StartAt) / math.max(duration, 0.001)
+					-- Ease-out quad: crece rápido al contacto y frena, como una onda
+					-- que pierde empuje. Deja el anillo en 1 solo perfil robusto.
+					local eased = 1 - (1 - t) * (1 - t)
+					local diameter = ring.Radius * 2 * eased + 0.3
+					ring.Part.Size = Vector3.new(RING_HEIGHT, diameter, diameter)
+					ring.Part.Transparency = ring.FadeFrom + (1 - ring.FadeFrom) * t
+				end
 			end
 		end
 	end)
@@ -5725,22 +8501,48 @@ local function emit(position: Vector3, count: number, color: Color3)
 	end
 end
 
--- Rayo entre dos puntos del salto de la cadena. La pieza se estira a lo largo de Z y
--- se orienta con lookAt, así que el grosor y la longitud son el mismo CFrame.
-local function beamBetween(from: Vector3, to: Vector3)
-	local delta = to - from
-	local length = delta.Magnitude
-	if length < 0.05 then
+-- Rayo entre dos puntos (cadena o slash). Empieza con un alfa inicial y se funde
+-- hasta opaco antes de apagarse; el beam vuelve al pool al llegar a cero su reloj.
+local function beamBetween(from: Vector3, to: Vector3, color: Color3, width: number, fadeDuration: number)
+	if (to - from).Magnitude < 0.05 then
 		return
 	end
 
 	local now = os.clock()
 	for _, beam in beams do
 		if beam.BusyUntil <= now then
-			beam.BusyUntil = now + BEAM_BUSY_SECONDS
-			beam.Part.Size = Vector3.new(0.35, 0.35, length)
-			beam.Part.CFrame = CFrame.lookAt(from, to)
-			beam.Part.Transparency = 0.15
+			beam.Beam.Enabled = true
+			beam.Beam.Color = ColorSequence.new(color)
+			beam.Beam.Width0 = width
+			beam.Beam.Width1 = width
+			beam.Part.CFrame = CFrame.new((from + to) * 0.5)
+			beam.Attach0.CFrame = CFrame.new(from)
+			beam.Attach1.CFrame = CFrame.new(to)
+			-- Los efectos fugaces (slash) nacen más transparentes que el rayo.
+			beam.FadeFrom = if fadeDuration > 0.06 then 0.14 else 0.3
+			beam.FadeStart = now
+			beam.FadeDuration = fadeDuration
+			beam.BusyUntil = now + fadeDuration
+			return
+		end
+	end
+end
+
+-- Anillo expansivo sobre un punto del suelo. La Y la manda el servidor (ras de
+-- suelo) y el cilindro crece en el plano XZ.
+local function playRing(position: Vector3, radius: number, color: Color3, duration: number, fadeFrom: number)
+	local now = os.clock()
+	for _, ring in rings do
+		if ring.BusyUntil <= now then
+			ring.BusyUntil = now + duration
+			ring.StartAt = now
+			ring.Radius = radius
+			ring.FadeFrom = fadeFrom
+			ring.Part.Color = color
+			ring.Part.Transparency = fadeFrom
+			ring.Part.CFrame = CFrame.new(position.X, position.Y + RING_HEIGHT / 2, position.Z)
+				* CFrame.Angles(0, 0, math.rad(90))
+			ring.Part.Size = Vector3.new(RING_HEIGHT, 0.3, 0.3)
 			return
 		end
 	end
@@ -5762,14 +8564,8 @@ local function playFlash()
 	flashTween:Play()
 end
 
-local BOLT = Color3.fromRGB(255, 246, 220)
-local CRIT = Color3.fromRGB(255, 208, 96)
-local DEATH = Color3.fromRGB(226, 96, 96)
-local BLAST = Color3.fromRGB(255, 158, 66)
-local NOVA = Color3.fromRGB(126, 208, 255)
-
 -- El servidor manda `magnitude` como radios o conteos segun el tipo; el cliente solo
--- decide como se ve. `target` solo lo usan los efectos que unen dos puntos.
+-- decide cómo se ve. `target` lo usan los efectos que unen dos puntos.
 function CombatFeedback.play(kind: string, position: Vector3, magnitude: number, target: Vector3?)
 	if kind == "hit" then
 		local crit = magnitude > 1
@@ -5777,15 +8573,28 @@ function CombatFeedback.play(kind: string, position: Vector3, magnitude: number,
 	elseif kind == "death" then
 		emit(position, 16, DEATH)
 	elseif kind == "explosion" then
+		-- Silueta clara primero: núcleo brillante y luego la onda que se expande.
 		local scale = math.clamp(magnitude / 8, 0.6, 2)
-		emit(position, math.round(18 * scale), BLAST)
+		emit(position, math.round(22 * scale), BLAST)
+		playRing(position, magnitude * 1.1, BLAST, 0.4, 0.12)
 	elseif kind == "nova" then
+		-- Chispazo central + el anillo de choque que empuja a la horda.
 		local scale = math.clamp(magnitude / 8, 0.6, 2)
-		emit(position, math.round(14 * scale), NOVA)
+		emit(position, math.round(18 * scale), NOVA)
+		playRing(position, magnitude * 1.15, NOVA, 0.5, 0.15)
 	elseif kind == "chain" then
-		emit(position, 5, Color3.fromRGB(150, 226, 255))
+		-- Eco en el origen del salto y chispazo en el impacto (target); el primer
+		-- rayo nace en el arma del jugador, así que siempre hay un segmento visible.
+		emit(position, 3, CHAIN)
 		if target then
-			beamBetween(position, target)
+			emit(target, 6, CHAIN)
+			beamBetween(position, target, CHAIN, 0.45, 0.24)
+		end
+	elseif kind == "slash" then
+		-- Arco de corte de la cuchilla: rayo fino, breve y brillante.
+		emit(position, 4, SLASH)
+		if target then
+			beamBetween(position, target, SLASH, 0.12, 0.12)
 		end
 	elseif kind == "playerHurt" then
 		playFlash()
@@ -5800,12 +8609,12 @@ return CombatFeedback
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="91">
+  <Item class="Workspace" referent="119">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
     </Properties>
-    <Item class="Part" referent="92">
+    <Item class="Part" referent="120">
       <Properties>
         <string name="Name">Baseplate</string>
         <bool name="Anchored">true</bool>
@@ -5826,7 +8635,7 @@ return CombatFeedback
         <token name="TopSurface">0</token>
       </Properties>
     </Item>
-    <Item class="SpawnLocation" referent="93">
+    <Item class="SpawnLocation" referent="121">
       <Properties>
         <string name="Name">SpawnLocation</string>
         <bool name="Anchored">true</bool>

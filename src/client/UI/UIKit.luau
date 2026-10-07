@@ -55,14 +55,14 @@ function UIKit.frame(
 	return frame
 end
 
-function UIKit.corner(frame: Frame, radius: UDim)
+function UIKit.corner(frame: Instance, radius: UDim)
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = radius
 	corner.Parent = frame
 	return corner
 end
 
-function UIKit.stroke(frame: Frame, color: Color3, thickness: number)
+function UIKit.stroke(frame: Instance, color: Color3, thickness: number)
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = color
 	stroke.Thickness = thickness

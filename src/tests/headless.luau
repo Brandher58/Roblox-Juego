@@ -314,6 +314,90 @@ do
 end
 
 do
+	-- CONTENIDO DE MISIONES: el Registry ya valida referencias cruzadas al cargar;
+	-- aquí se comprueba la forma del contenido que sostiene la progresión.
+	local missionCount = 0
+	for id, mission in Registry.Missions do
+		missionCount += 1
+		check(Registry.Maps[mission.MapId] ~= nil, `la misión {id} apunta a un mapa existente`)
+		check(#mission.Objectives >= 1, `la misión {id} define al menos un objetivo`)
+		check(mission.Rewards.Currency >= 0, `la misión {id} tiene recompensa válida`)
+	end
+	check(missionCount >= 4, `hay al menos 4 misiones definidas ({missionCount})`)
+
+	local bossMission = Registry.Missions["AbandonedMine_Boss"]
+	check(bossMission ~= nil, "existe la misión de jefe")
+	if bossMission then
+		check(
+			bossMission.Boss ~= nil and Registry.Enemies[bossMission.Boss.Id] ~= nil,
+			"la misión de jefe invoca un jefe existente"
+		)
+		local hasDefeatBoss = false
+		for _, objective in bossMission.Objectives do
+			if objective.Type == "DefeatBoss" then
+				hasDefeatBoss = true
+			end
+		end
+		check(hasDefeatBoss, "la misión de jefe exige derrotar al jefe")
+		check(#bossMission.Rewards.MapUnlocks >= 1, "derrotar al jefe desbloquea un mapa")
+	end
+end
+
+do
+	-- OBJETIVOS: módulos puros, sin Roblox. Se prueban con un runtime sintético igual
+	-- al que construye ObjectiveSystem en el servidor.
+	local Survive = require("../server/Missions/Objectives/Survive")
+	local KillEnemy = require("../server/Missions/Objectives/KillEnemy")
+	local KillElite = require("../server/Missions/Objectives/KillElite")
+	local DefeatBoss = require("../server/Missions/Objectives/DefeatBoss")
+
+	local function make(module, definition)
+		return {
+			Definition = definition,
+			Required = module.Required(definition),
+			Current = 0,
+			Complete = false,
+		}
+	end
+
+	local surviveDef = { Type = "Survive", Duration = 5 }
+	local survive = make(Survive, surviveDef)
+	Survive.Update(survive, 2)
+	check(
+		not survive.Complete and survive.Current == 2,
+		"Survive acumula tiempo pero no completa antes de tiempo"
+	)
+	Survive.Update(survive, 10)
+	check(survive.Complete and survive.Current == survive.Required, "Survive completa y no se pasa del total")
+	check(Survive.Label(surviveDef) ~= "", "Survive tiene etiqueta")
+
+	local killEnemyDef = { Type = "KillEnemy", Amount = 2 }
+	local killEnemy = make(KillEnemy, killEnemyDef)
+	KillEnemy.HandleEvent(killEnemy, { Kind = "Kill", Enemy = { Id = "basic", Tags = {} } })
+	check(killEnemy.Current == 1 and not killEnemy.Complete, "KillEnemy cuenta una baja")
+	KillEnemy.HandleEvent(killEnemy, { Kind = "BossDefeated", BossId = "mine_guardian" })
+	check(killEnemy.Current == 1, "KillEnemy ignora eventos que no son bajas")
+	KillEnemy.HandleEvent(killEnemy, { Kind = "Kill", Enemy = { Id = "basic", Tags = {} } })
+	check(killEnemy.Complete, "KillEnemy completa al llegar al total")
+
+	local eliteDef = { Type = "KillElite", Amount = 1 }
+	local elite = make(KillElite, eliteDef)
+	KillElite.HandleEvent(elite, { Kind = "Kill", Enemy = { Id = "basic", Tags = {} } })
+	check(not elite.Complete, "KillElite no cuenta enemigos normales")
+	KillElite.HandleEvent(elite, { Kind = "Kill", Enemy = { Id = "elite", Tags = { "melee", "elite" } } })
+	check(elite.Complete, "KillElite completa con una élite")
+
+	local bossDef = { Type = "DefeatBoss", TargetId = "mine_guardian" }
+	local boss = make(DefeatBoss, bossDef)
+	DefeatBoss.HandleEvent(boss, { Kind = "Kill", Enemy = { Id = "basic", Tags = {} } })
+	check(not boss.Complete, "DefeatBoss ignora a los enemigos normales")
+	DefeatBoss.HandleEvent(boss, { Kind = "Kill", Enemy = { Id = "tank", Tags = { "boss" } } })
+	check(not boss.Complete, "DefeatBoss ignora a otro jefe distinto de TargetId")
+	DefeatBoss.HandleEvent(boss, { Kind = "Kill", Enemy = { Id = "mine_guardian", Tags = { "boss" } } })
+	check(boss.Complete, "DefeatBoss completa al caer el jefe indicado")
+end
+
+do
 	-- REQUIRES RELATIVOS
 	-- En Roblox `script.Hermano` no existe: dentro de un ModuleScript, `script` es el
 	-- propio modulo, asi que `script.SpatialGrid` busca un *hijo* del modulo y falla con

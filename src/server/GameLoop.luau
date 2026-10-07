@@ -10,6 +10,7 @@ local Projectiles = require(script.Parent.Combat.Projectiles)
 local OrbitBlades = require(script.Parent.Combat.OrbitBlades)
 local WeaponRuntime = require(script.Parent.Combat.WeaponRuntime)
 local XPPickups = require(script.Parent.Pickups.XPPickups)
+local MissionManager = require(script.Parent.Missions.MissionManager)
 
 -- Tras un tirón largo, un dt enorme teletransportaría enemigos y proyectiles.
 local MAX_STEP = 0.1
@@ -44,6 +45,10 @@ function GameLoop.start()
 		OrbitBlades.update(dt, now)
 		WeaponRuntime.update(now)
 		EnemySpawner.update(now, Match.getElapsed())
+		-- La misión se evalúa al final del frame: los eventos de muerte de este frame
+		-- ya han llegado a sus objetivos, así que una baja no se pierde hasta el
+		-- siguiente. `Match` no conoce a `MissionManager`; los une este bucle.
+		MissionManager.update(dt, now)
 	end)
 end
 

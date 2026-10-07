@@ -37,6 +37,11 @@ local snapshotClock = 0
 local levelUpClock = 0
 local resultsEndsAt = 0
 local lastChoiceAt: { [Player]: number } = {}
+-- En la Fase 1 sobrevivir `TargetDuration` daba la victoria. Con misiones, quien
+-- decide el final es el MissionManager; este interruptor preserva el comportamiento
+-- antiguo cuando no hay misión activa (lobby/solo).
+local autoVictory = true
+local stateListeners: { (MatchState) -> () } = {}
 
 -- "Event", "Boss" y "Victory" están reservados: añadir un evento de partida no
 -- requiere tocar el HUD ni los clientes.
@@ -47,6 +52,7 @@ local SIMULATED: { [MatchState]: boolean } = {
 	LevelUp = false,
 	Event = true,
 	Boss = true,
+	MissionSelect = false,
 	Victory = false,
 	Defeat = false,
 }
@@ -68,7 +74,26 @@ function Match.setState(next: MatchState)
 		return
 	end
 	state = next
+	for _, listener in stateListeners do
+		listener(next)
+	end
 	Match.broadcast()
+end
+
+-- Observadores de transición (p. ej. MissionManager). Devuelve una función para
+-- darse de baja. `Match` no conoce a sus observadores: solo avisa.
+function Match.onStateChanged(listener: (MatchState) -> ()): () -> ()
+	table.insert(stateListeners, listener)
+	return function()
+		local index = table.find(stateListeners, listener)
+		if index then
+			table.remove(stateListeners, index)
+		end
+	end
+end
+
+function Match.setAutoVictory(enabled: boolean)
+	autoVictory = enabled
 end
 
 local function clearWorld()
@@ -182,8 +207,7 @@ function Match.startRun(now: number)
 	end
 
 	EnemySpawner.reset(now)
-	state = "Playing"
-	Match.broadcast()
+	Match.setState("Playing")
 end
 
 function Match.stopRun(final: MatchState, now: number)
@@ -193,6 +217,33 @@ function Match.stopRun(final: MatchState, now: number)
 		resultsEndsAt = now + duration
 	end
 	Match.setState(final)
+end
+
+-- Vuelta al lobby tras una partida. Deja a los jugadores vivos y con personaje para
+-- que la selección de misión no aparezca sobre nadie muerto. `MissionManager` escucha
+-- este estado y suelta la ejecución, de modo que la misión se puede reintentar.
+function Match.returnToSelect(now: number)
+	clearWorld()
+	elapsed = 0
+	snapshotClock = 0
+	levelUpClock = 0
+	resultsEndsAt = 0
+
+	for _, player in Players:GetPlayers() do
+		PlayerAvatar.applyStats(player, Stats.get(player, now))
+		if not PlayerAvatar.isAlive(player) then
+			task.spawn(function()
+				local ok, problem = pcall(player.LoadCharacterAsync, player)
+				if not ok then
+					warn(`[Match] no se pudo recargar el personaje de {player.Name}: {problem}`)
+					return
+				end
+				PlayerAvatar.applyStats(player, Stats.get(player, now))
+			end)
+		end
+	end
+
+	Match.setState("MissionSelect")
 end
 
 function Match.beginLevelUp()
@@ -304,9 +355,9 @@ function Match.update(dt: number, now: number)
 				Match.pushSnapshot(player)
 			end
 		end
-		-- Objetivo de la Fase 1. Cuando llegue el jefe, este reloj deja de decidir el
-		-- final y pasa a lanzar el evento: el resto del final de partida ya existe.
-		if elapsed >= Config.Run.TargetDuration then
+		-- Objetivo de la Fase 1 (sin misión). Con misión activa, `autoVictory` está
+		-- apagado y es el MissionManager quien cierra la partida.
+		if autoVictory and elapsed >= Config.Run.TargetDuration then
 			Match.stopRun("Victory", now)
 		end
 		return
@@ -331,7 +382,7 @@ function Match.update(dt: number, now: number)
 
 	if (state == "Defeat" or state == "Victory") and now >= resultsEndsAt then
 		if #Players:GetPlayers() > 0 then
-			Match.startRun(now)
+			Match.returnToSelect(now)
 		else
 			state = "Lobby"
 		end
