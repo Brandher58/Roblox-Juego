@@ -246,6 +246,18 @@ function Match.returnToSelect(now: number)
 	Match.setState("MissionSelect")
 end
 
+-- Un jugador "tiene elección pendiente" cuando hay cartas sin elegir. Los niveles
+-- sin cartas posibles ya se descartaron dentro de `LevelUp.begin`.
+local function hasPendingChoices(): boolean
+	for _, player in Players:GetPlayers() do
+		local offers = LevelUp.pendingFor(player)
+		if offers and #offers > 0 then
+			return true
+		end
+	end
+	return false
+end
+
 function Match.beginLevelUp()
 	for _, player in Players:GetPlayers() do
 		if LevelUp.queuedLevels(player) > 0 then
@@ -253,6 +265,17 @@ function Match.beginLevelUp()
 		end
 	end
 	levelUpClock = 0
+
+	-- Sin cartas que ofrecer (p. ej. todo maxeado en modo dev) no hay motivo para
+	-- congelar el reloj: la partida sigue sin interrupción.
+	if not hasPendingChoices() then
+		if state == "LevelUp" then
+			Match.setState("Playing")
+			EnemySpawner.reset(os.clock())
+		end
+		return
+	end
+
 	Match.setState("LevelUp")
 end
 
@@ -273,15 +296,6 @@ function Match.grantXp(player: Player, amount: number)
 	if state == "Playing" then
 		Match.beginLevelUp()
 	end
-end
-
-local function hasPendingChoices(): boolean
-	for _, player in Players:GetPlayers() do
-		if LevelUp.queuedLevels(player) > 0 then
-			return true
-		end
-	end
-	return false
 end
 
 -- Petición del cliente. El servidor no confía en nada: la carta tiene que estar en
@@ -309,11 +323,14 @@ function Match.handleUpgradeRequest(player: Player, upgradeId: unknown): (boolea
 	Match.pushSnapshot(player)
 
 	-- Una sola gota puede dar varios niveles: se encadena otra carta sin volver a
-	-- congelar el reloj.
+	-- congelar el reloj. Si la generación ya no encuentra nada (todo maxeado), el
+	-- nivel sobrante se descarta y se sigue con la comprobación de abajo.
 	if LevelUp.queuedLevels(player) > 0 then
-		LevelUp.begin(player, OFFER_COUNT)
-		Match.broadcast()
-		return true, nil
+		local offers = LevelUp.begin(player, OFFER_COUNT)
+		if #offers > 0 then
+			Match.broadcast()
+			return true, nil
+		end
 	end
 
 	if not hasPendingChoices() then
@@ -367,14 +384,17 @@ function Match.update(dt: number, now: number)
 		levelUpClock += dt
 		if levelUpClock >= Config.Run.LevelUpTimeout then
 			-- Autoelección: una partida nunca queda bloqueada por un jugador ausente.
+			-- Se elige la primera carta y es el servidor quien aplica la mejora.
 			for _, player in Players:GetPlayers() do
 				local offers = LevelUp.pendingFor(player)
-				if offers and LevelUp.queuedLevels(player) > 0 then
+				if offers and #offers > 0 then
 					Match.handleUpgradeRequest(player, offers[1].Id)
 				end
 			end
 			if state == "LevelUp" and not hasPendingChoices() then
+				levelUpClock = 0
 				Match.setState("Playing")
+				EnemySpawner.reset(now)
 			end
 		end
 		return

@@ -133,6 +133,56 @@ Chronological record of work performed, files changed, validation results, and e
 | What have I learned? | See `findings.md` |
 | What have I done? | See above; full DoD flow verified locally and in Studio via MCP |
 
+## Session: 2026-10-06 (hotfixes post-entrega)
+
+### Fix 1 — Warning `Player:Move called, but player currently has no character.`
+
+- **Causa:** el `ControlModule` interno de Roblox intenta mover al jugador sin
+  personaje (`Players.CharacterAutoLoads = false`).
+- **Fix** en `src/client/Input/RunInput.luau`:
+  - Los controles solo se habilitan con un `Humanoid` presente (el estado deseado
+    se recuerda y se aplica en `CharacterAdded`, esperando al `Humanoid`).
+  - `moveFunction` del `ControlModule` envuelta para que nunca mueva sin `Humanoid`
+    (cubre la ventana previa al arranque del script).
+  - Se desactivan al instante en `CharacterRemoving`.
+- **Verificado:** playtest limpio con 0 warnings/errores en runtime.
+
+### Fix 2 — Modo dev: subir de nivel con todo maxeado congelaba el reloj
+
+- **Causa:** `Match.beginLevelUp()` entraba en `LevelUp` aunque no hubiera cartas
+  que ofrecer (`#offers == 0`) y el estado solo se recuperaba tras el timeout.
+- **Fix:** `LevelUp.begin` descarta los niveles sin carta (`#offers == 0` →
+  `queued = 0`, `pending = nil`); `beginLevelUp` solo pausa si al menos un jugador
+  tiene cartas; el encadenamiento de niveles también reanuda si la generación se
+  queda vacía.
+- **Verificado:** con todo al máximo y 3 s de espera, `state = Playing` y el
+  `elapsed` avanzó ~3 s.
+
+### Fix 3 — No elegir carta no elegía nada
+
+- **Causa:** la autoelección exigía `queuedLevels > 0`, pero `begin` ponía
+  `queued = 0`, así que nunca se disparaba.
+- **Fix:** tras `LevelUpTimeout` (15 s) se elige la primera carta pendiente
+  (`#offers > 0`), aplicada siempre por el servidor.
+- **Verificado:** 40 niveles pendientes se auto-consumieron y la partida volvió a
+  `Playing` sin ninguna elección manual.
+
+## Test Results
+
+| Test | Input | Expected | Actual | Status |
+|------|-------|----------|--------|--------|
+| Playtest: warning `Player:Move` | arranque sin personaje | sin warnings | 0 warnings/errors | ✅ |
+| Playtest: timeout sin elegir | subir de nivel, no elegir, esperar 18 s | autoelección 1ª carta y reanudar | 40 cartas auto-consumidas, `Playing` | ✅ |
+| Playtest: dev todo maxeado | maxear mejoras/armas + XP | no pausa, el tiempo avanza | `Playing`, `elapsed` +3 s, 0 ofertas | ✅ |
+| Playtest: muerte/respawn | morir, esperar 8 s | `MissionSelect`, vivo, sin warnings | OK y log limpio | ✅ |
+
+## Error Log
+
+| Timestamp | Error | Attempt | Resolution |
+|-----------|-------|---------|------------|
+| 2026-10-06 | `eval_client_runtime`: string malformada (`\n` real embebido) | 1 | Escapar `\\n` dentro del código Lua embebido |
+| 2026-10-06 | No se pudo leer `PlayerModule.Source` (sin capability de plugin) | 1 | Inspeccionar el módulo de controles en runtime (`controls.moveFunction`) y parchearlo |
+
 ---
 
 *Update this file after completing a phase, running validation, or encountering an error.*

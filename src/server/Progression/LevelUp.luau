@@ -32,7 +32,15 @@ end
 function LevelUp.begin(player: Player, offerCount: number): { UpgradeOffer }
 	local luck = Stats.get(player).Luck or 1
 	local offers = UpgradeOffers.generate(Run.view(player), luck, math.random, offerCount)
-	queued[player] = 0
+	if #offers == 0 then
+		-- Nada que ofrecer (p. ej. todo maxeado en modo dev): el nivel pendiente no
+		-- puede resolverse, se descarta y no se congela la partida.
+		queued[player] = 0
+		pending[player] = nil
+		return offers
+	end
+	-- Esta carta resuelve un nivel; los que quedan se encadenan al consumirla.
+	queued[player] = math.max(0, (queued[player] or 0) - 1)
 	pending[player] = offers
 	return offers
 end
