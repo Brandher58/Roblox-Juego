@@ -222,6 +222,37 @@ do
 	for _, offer in afterUnlock do
 		check(offer.Id ~= "shotgun_unlock", "el requisito de la mejora de arma se respeta")
 	end
+
+	-- Regresión (bug reportado): la mejora de un arma que el jugador NO posee no
+	-- puede salir como oferta ("Filo Afilado" antes de tener las cuchillas).
+	local soloGun = UpgradeOffers.generate({
+		level = 4,
+		weaponLevels = { gun = 1 },
+		upgradeLevels = {},
+	}, 1, rand)
+	check(#soloGun > 0, "con una sola arma siguen saliendo cartas")
+	for _, offer in soloGun do
+		if offer.Kind == "WeaponUpgrade" then
+			check(
+				offer.TargetId == "gun",
+				`no se ofrece la mejora {offer.Id} de un arma no poseida ({offer.TargetId})`
+			)
+		end
+	end
+
+	local partial = UpgradeOffers.generate({
+		level = 5,
+		weaponLevels = { gun = 2, shotgun = 1, chain = 2 },
+		upgradeLevels = {},
+	}, 1, rand)
+	for _, offer in partial do
+		if offer.Kind == "WeaponUpgrade" then
+			check(
+				offer.TargetId == "gun" or offer.TargetId == "shotgun" or offer.TargetId == "chain",
+				`no se ofrece la mejora {offer.Id} de un arma no poseida ({offer.TargetId})`
+			)
+		end
+	end
 end
 
 do

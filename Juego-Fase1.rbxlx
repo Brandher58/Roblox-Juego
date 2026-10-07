@@ -2183,9 +2183,18 @@ for id in Registry.Upgrades do
 end
 table.sort(UPGRADE_IDS)
 
+local function ownsWeapon(run: RunView, weaponId: string?): boolean
+	return weaponId ~= nil and (run.weaponLevels[weaponId] or 0) > 0
+end
+
 local function isEligible(definition: UpgradeDefinition, run: RunView): boolean
 	local current = run.upgradeLevels[definition.Id] or 0
 	if current >= definition.MaxLevel then
+		return false
+	end
+	-- Una mejora de arma solo tiene sentido si esa arma ya se posee: no se puede
+	-- comprar "Filo Afilado" (cuchillas) antes de tener las cuchillas.
+	if definition.Kind == "WeaponUpgrade" and not ownsWeapon(run, definition.TargetId) then
 		return false
 	end
 	return if definition.Requires then definition.Requires(run) else true
@@ -2233,10 +2242,6 @@ local function remaining(
 		end
 	end
 	return pool
-end
-
-local function ownsWeapon(run: RunView, weaponId: string?): boolean
-	return weaponId ~= nil and (run.weaponLevels[weaponId] or 0) > 0
 end
 
 local Offers = {}
