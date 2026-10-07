@@ -11,6 +11,7 @@ local Hud = require(script.Parent.UI.Hud)
 local LevelUpPanel = require(script.Parent.UI.LevelUpPanel)
 local ResultPanel = require(script.Parent.UI.ResultPanel)
 local CombatFeedback = require(script.Parent.VFX.CombatFeedback)
+local AdminMenu = require(script.Parent.Admin.AdminMenu)
 
 type MatchState = Types.MatchState
 type RunSnapshot = Types.RunSnapshot
@@ -22,6 +23,7 @@ LevelUpPanel.build(function(upgradeId: string)
 end)
 ResultPanel.build()
 CombatFeedback.build()
+AdminMenu.build()
 TopDownCamera.start()
 
 local lastLevel = 1

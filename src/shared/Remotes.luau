@@ -35,4 +35,7 @@ return {
 	RequestUpgrade = remote("RequestUpgrade", "RemoteEvent") :: RemoteEvent,
 	-- Servidor → cliente: feedback visual descartable (kind: string, position, magnitude).
 	CombatEffect = remote("CombatEffect", "UnreliableRemoteEvent") :: UnreliableRemoteEvent,
+	-- Cliente → servidor: comando de desarrollo (solo Studio; fuera de Studio no hay
+	-- handler). Payload: (command: string, value: unknown).
+	AdminCommand = remote("AdminCommand", "RemoteEvent") :: RemoteEvent,
 }

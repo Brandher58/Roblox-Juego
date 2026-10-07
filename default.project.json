@@ -28,6 +28,9 @@
         },
         "CombatEffect": {
           "$className": "UnreliableRemoteEvent"
+        },
+        "AdminCommand": {
+          "$className": "RemoteEvent"
         }
       }
     },

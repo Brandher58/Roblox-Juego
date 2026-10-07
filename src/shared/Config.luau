@@ -88,19 +88,41 @@ Config.Projectile = {
 	Gravity = 46,
 	-- Un proyectil explosivo es más grande para que se vea venir.
 	BombRadius = 1.1,
+	-- Altura pico del arco (lob) de una bomba. La bomba sube y cae de verdad: la
+	-- velocidad vertical se calcula desde v² = 2·g·h, así que la altura no depende
+	-- del frame. Crece con la distancia al objetivo y con la stat Arc.
+	LobHeightMin = 3,
+	LobHeightMax = 10,
+	-- Giro de la bomba en vuelo (rad/s). Solo la explosiva gira: las balas rectas no.
+	BombSpin = 9,
+	-- Rastro de la bomba: un Trail corto y brillante que hace legible la parábola.
+	BombTrail = {
+		Length = 3.2,
+		Lifetime = 0.4,
+		LightEmission = 0.5,
+		Brightness = 2,
+	},
 }
 
 --Cuchillas orbitando al jugador. Son piezas persistentes, no disparos: giran y
 --muelen por contacto con su propio ritmo, independiente del ataque por cadencia.
 Config.Orbit = {
 	MaxBlades = 12,
-	BladeSize = Vector3.new(0.5, 0.5, 2),
-	BladeColor = Color3.fromRGB(178, 216, 255),
+	-- Más grande y más clara: desde la cámara top-down una cuchilla de 0.5 de ancho
+	-- se pierde contra el suelo. El alargado en Z es la dirección del filo.
+	BladeSize = Vector3.new(0.65, 0.65, 2.6),
+	BladeColor = Color3.fromRGB(196, 240, 255),
 	-- Radio de contacto de cada cuchilla al buscar enemigos en la rejilla.
 	ContactRadius = 1.4,
 	-- Segundos que un enemigo queda protegido tras recibir un corte. Sin esto una
 	-- cuchilla dañaría cada frame.
 	HitCooldownFloor = 0.2,
+	-- Bob vertical sutil por cuchilla: sube y baja mientras orbita para que el
+	-- enjambre no se lea como un disco perfecto y muerto.
+	BobAmount = 0.35,
+	BobSpeed = 6.5,
+	-- Longitud del arco de corte (slash) que dibuja el cliente al conectar.
+	SlashLength = 2.6,
 }
 
 --Cámara top-down isométrica ligera.

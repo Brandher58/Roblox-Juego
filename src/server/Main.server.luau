@@ -14,12 +14,14 @@ local EnemyRegistry = require(script.Parent.Enemies.EnemyRegistry)
 local XPPickups = require(script.Parent.Pickups.XPPickups)
 local Projectiles = require(script.Parent.Combat.Projectiles)
 local OrbitBlades = require(script.Parent.Combat.OrbitBlades)
+local Admin = require(script.Parent.Admin)
 
 -- Pools y carpetas de mundo antes de que nada pueda instanciar.
 EnemyRegistry.init()
 XPPickups.init()
 Projectiles.init()
 OrbitBlades.init()
+Admin.init()
 
 -- El propietario de la partida decide qué significa recoger XP. Inyectarlo aquí
 -- mantiene la dirección de dependencias en un solo sentido.

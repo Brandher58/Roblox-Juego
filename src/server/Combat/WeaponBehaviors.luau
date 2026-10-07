@@ -141,9 +141,16 @@ local function fireChain(context: Context)
 	local jumpRange = math.max(4, context.stats.ChainRange or 18)
 	local falloff = math.clamp(context.stats.ChainFalloff or 0.85, 0.1, 1)
 
-	local from = Vector3.new(context.target.X, Config.Arena.FloorY + 1, context.target.Z)
+	-- El primer salto nace en el arma del jugador con su propio offset Y, no en el
+	-- punto apuntado: así el rayo de apertura siempre tiene longitud, y por tanto
+	-- siempre se dibuja, aunque el primer objetivo esté justo delante.
+	local hitY = Config.Arena.FloorY + 1
+	local source = Vector3.new(context.origin.X, hitY, context.origin.Z)
+
 	local alreadyHit: { [number]: boolean } = {}
-	local current: EnemyRegistry.Enemy? = nearestUntouched(from, 1, alreadyHit)
+	local current: EnemyRegistry.Enemy? =
+		nearestUntouched(Vector3.new(context.target.X, hitY, context.target.Z), 1, alreadyHit)
+	local from = source
 
 	for _ = 1, jumps do
 		if not current then
@@ -152,7 +159,7 @@ local function fireChain(context: Context)
 		EnemyRegistry.damage(current, damage, isCrit)
 		alreadyHit[current.Id] = true
 
-		local position = Vector3.new(current.Position.X, Config.Arena.FloorY + 1, current.Position.Z)
+		local position = Vector3.new(current.Position.X, hitY, current.Position.Z)
 		Remotes.CombatEffect:FireAllClients("chain", from, jumpRange, position)
 
 		from = position
@@ -161,38 +168,51 @@ local function fireChain(context: Context)
 	end
 end
 
--- Lanza bombas en parábola hacia el objetivo. La detonación y el daño en área los
--- lleva el propio proyectil, no esta función: aquí solo se elige hacia dónde.
+-- Lanza bombas con un arco real: sube y cae. La detonación y el daño en área los
+-- lleva el propio proyectil, no esta función: aquí solo se construye la velocidad
+-- de lanzamiento desde el lob deseado.
 local function fireBomb(context: Context)
 	if not context.target then
 		return
 	end
 
 	local muzzle = context.origin + Vector3.new(0, 1.4, 0)
-	local aim = context.target - muzzle
-	if aim.Magnitude < 0.01 then
+	local flat = Vector3.new(context.target.X - muzzle.X, 0, context.target.Z - muzzle.Z)
+	local flatDistance = flat.Magnitude
+	if flatDistance < 0.2 then
 		return
 	end
-	aim = aim.Unit
+	flat = flat / flatDistance
 
 	local blast = math.max(1, context.stats.BlastRadius or 8)
 	local arc = math.clamp(context.stats.Arc or 0.45, 0, 1.5)
 	local speed = math.max(Config.Projectile.SpeedFloor, context.stats.ProjectileSpeed or 44)
-	local range = math.max(6, context.stats.Range or 34)
-	local lifetime = range / speed + 0.35
 	local count = math.max(1, math.round(context.stats.ProjectileCount or 1))
 
+	-- La altura pico crece con la distancia al objetivo y con la stat Arc, y la
+	-- velocidad vertical sale de la conservación (v² = 2·g·h): la altura es exacta
+	-- y no depende del frame ni del giro del mundo.
+	local gravity = Config.Projectile.Gravity
+	local rise = math.clamp(
+		flatDistance * 0.28 + arc * 6,
+		Config.Projectile.LobHeightMin,
+		Config.Projectile.LobHeightMax
+	)
+	local verticalSpeed = math.sqrt(2 * gravity * rise)
+	local flightTime = 2 * verticalSpeed / gravity
+	-- Velocidad horizontal suficiente para alcanzar al objetivo antes de caer.
+	local horizontalSpeed = math.max(speed, flatDistance / math.max(flightTime, 0.01) + 1)
+	local lifetime = flightTime + 0.5
+
 	for _ = 1, count do
-		-- La dispersión solo afecta a la horizontal: todas las bombas de una andanada
-		-- salen con la misma elevación y así la andanada sigue siendo legible.
+		-- La dispersión solo rota la orientación horizontal: todas las bombas de la
+		-- andanada comparten altura y así el arco se sigue leyendo como una sola
+		-- parábola.
 		local scatter = (math.random() - 0.5) * math.rad(9)
-		local direction = Vector3.new(
-			aim.X * math.cos(scatter) - aim.Z * math.sin(scatter),
-			aim.Y + arc,
-			aim.X * math.sin(scatter) + aim.Z * math.cos(scatter)
-		)
+		local scattered = rotateY(flat, scatter)
+		local velocity = scattered * horizontalSpeed + Vector3.new(0, verticalSpeed, 0)
 		local damage, isCrit = rollCrit(context.player, context.stats, context.now)
-		Projectiles.spawnBomb(muzzle, direction, damage, speed, lifetime, context.player, isCrit, blast)
+		Projectiles.spawnBomb(muzzle, velocity, damage, lifetime, context.player, isCrit, blast)
 	end
 end
 

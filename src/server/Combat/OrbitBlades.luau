@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local GameAssets = require(Shared:WaitForChild("GameAssets"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
 local Pool = require(script.Parent.Parent.Utility.Pool)
 local EnemyRegistry = require(script.Parent.Parent.Enemies.EnemyRegistry)
 local PlayerAvatar = require(script.Parent.Parent.PlayerAvatar)
@@ -139,7 +140,7 @@ function OrbitBlades.configure(player: Player, stats: { [string]: number }, dama
 	end
 end
 
-local function cut(position: Vector3, orbit: Orbit, now: number)
+local function cut(position: Vector3, tangent: Vector3, orbit: Orbit, now: number)
 	local contact = Config.Orbit.ContactRadius
 	for _, enemy in EnemyRegistry.queryRadius(position, contact + QUERY_PAD) do
 		if enemy.HitLockUntil <= now then
@@ -150,6 +151,14 @@ local function cut(position: Vector3, orbit: Orbit, now: number)
 			if distance <= reach * reach then
 				enemy.HitLockUntil = now + orbit.Cooldown
 				EnemyRegistry.damage(enemy, orbit.Damage, orbit.IsCrit)
+				-- Arco de corte: un rayito desde el filo hacia donde viene la cuchilla
+				-- (la tangente al giro). El cliente lo dibuja corto y brillante.
+				Remotes.CombatEffect:FireAllClients(
+					"slash",
+					position,
+					1,
+					position + tangent * Config.Orbit.SlashLength
+				)
 			end
 		end
 	end
@@ -179,10 +188,14 @@ function OrbitBlades.update(dt: number, now: number)
 		for index, blade in orbit.Blades do
 			local angle = orbit.Angle + spacing * index
 			local cos, sin = math.cos(angle), math.sin(angle)
-			local position = center + Vector3.new(cos, 0, sin) * orbit.Radius
+			-- Bob vertical sutil y desfasado por cuchilla, para que el enjambre no se
+			-- lea como un disco muerto: cada cuchilla sube y baja mientras orbita.
+			local bob = math.sin(now * Config.Orbit.BobSpeed + index * 0.9) * Config.Orbit.BobAmount
+			local position = center + Vector3.new(cos, 0, sin) * orbit.Radius + Vector3.new(0, bob, 0)
+			local tangent = Vector3.new(-sin, 0, cos)
 			-- Orientada tangente al giro, que es como se lee una cuchilla girando.
-			blade.Part.CFrame = CFrame.lookAt(position, position + Vector3.new(-sin, 0, cos))
-			cut(position, orbit, now)
+			blade.Part.CFrame = CFrame.lookAt(position, position + tangent)
+			cut(position, tangent, orbit, now)
 		end
 	end
 end

@@ -27,6 +27,10 @@ type Projectile = {
 	BlastRadius: number,
 	-- Gravedad vertical. 0 = vuelo recto; > 0 = parábola que acaba detonando.
 	Gravity: number,
+	-- Giro acumulado en vuelo (rad). Solo las bombas giran: las balas rectas llevan
+	-- SpinRate a cero y se conservan con su orientación actual.
+	Spin: number,
+	SpinRate: number,
 	Slot: number,
 	Lease: any,
 }
@@ -55,6 +59,40 @@ local function buildTemplate(): Part
 	return part
 end
 
+-- Rastro de las bombas: dos attachments perpendiculares al avance (así el ribete
+-- tiene anchura que la cámara top-down sí ve) y un Trail apagado por defecto. Se
+-- monta una sola vez por pieza; el pool recicla la pieza, no el rastro.
+local function ensureBombTrail(part: Part)
+	if part:FindFirstChild("BombTrail") then
+		return
+	end
+
+	local attach0 = Instance.new("Attachment")
+	attach0.Name = "Trail0"
+	attach0.Position = Vector3.new(0.65, 0, 0)
+
+	local attach1 = Instance.new("Attachment")
+	attach1.Name = "Trail1"
+	attach1.Position = Vector3.new(-0.65, 0, 0)
+
+	local trail = Instance.new("Trail")
+	trail.Name = "BombTrail"
+	trail.Attachment0 = attach0
+	trail.Attachment1 = attach1
+	trail.Color = ColorSequence.new(Color3.fromRGB(255, 164, 68))
+	trail.Lifetime = Config.Projectile.BombTrail.Lifetime
+	trail.MaxLength = Config.Projectile.BombTrail.Length
+	trail.MinLength = 0.5
+	trail.LightEmission = Config.Projectile.BombTrail.LightEmission
+	trail.Brightness = Config.Projectile.BombTrail.Brightness
+	trail.Transparency =
+		NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 1) })
+	trail.Enabled = false
+	trail.Parent = part
+	attach0.Parent = part
+	attach1.Parent = part
+end
+
 function Projectiles.init()
 	if container then
 		return
@@ -70,20 +108,22 @@ function Projectiles.count(): number
 end
 
 -- Camino común de los dos tipos de proyectil. La única diferencia entre una bala y
--- una bomba son los dos ultimos parametros, de modo que el pool, el array y la
--- simulacion viven en un solo sitio.
+-- una bomba son los tres ultimos parametros (explosión, gravedad y giro), de modo
+-- que el pool, el array y la simulacion viven en un solo sitio. La velocidad es
+-- absoluta y llega ya calculada: las bombas la construyen con su arco (lob), las
+-- balas con dirección * rapidez.
 local function launch(
 	origin: Vector3,
-	direction: Vector3,
+	velocity: Vector3,
 	damage: number,
-	speed: number,
 	lifetime: number,
 	owner: Player,
 	isCrit: boolean,
 	blastRadius: number,
-	gravity: number
+	gravity: number,
+	spinRate: number
 )
-	if not pool or direction.Magnitude < 0.01 then
+	if not pool or velocity.Magnitude < 0.01 then
 		return
 	end
 
@@ -100,20 +140,30 @@ local function launch(
 		part.Color = color
 		part.Material = Enum.Material.Neon
 		part.Transparency = 0.1
-		part.CFrame = CFrame.new(origin)
+		part.CFrame = CFrame.lookAt(origin, origin + velocity)
 		part.Parent = container
+		-- El rastro solo pertenece a las bombas: una bala reciclada lo apaga para
+		-- no arrastrar el de la bomba anterior.
+		ensureBombTrail(part)
+		local trail = part:FindFirstChild("BombTrail") :: Trail?
+		if trail then
+			trail.Enabled = explosive
+			trail.Color = ColorSequence.new(color)
+		end
 	end)
 
 	table.insert(projectiles, {
 		Part = acquired :: Part,
 		Position = origin,
-		Velocity = direction.Unit * math.max(speed, Config.Projectile.SpeedFloor),
+		Velocity = velocity,
 		Damage = damage,
 		IsCrit = isCrit,
 		Owner = owner,
 		Life = math.min(lifetime, Config.Projectile.MaxLifetime),
 		BlastRadius = blastRadius,
 		Gravity = gravity,
+		Spin = 0,
+		SpinRate = spinRate,
 		Slot = #projectiles + 1,
 		Lease = lease,
 	})
@@ -129,16 +179,16 @@ function Projectiles.spawn(
 	owner: Player,
 	isCrit: boolean
 )
-	launch(origin, direction, damage, speed, lifetime, owner, isCrit, 0, 0)
+	local velocity = direction.Unit * math.max(speed, Config.Projectile.SpeedFloor)
+	launch(origin, velocity, damage, lifetime, owner, isCrit, 0, 0, 0)
 end
 
--- Bomba: vuela en parbola y detona al tocar el suelo, al tocar un enemigo o al
--- agotar su tiempo de vuelo.
+-- Bomba: vuela en parábola (el arco ya viene en `velocity`) y detona al tocar el
+-- suelo, al tocar un enemigo o al agotar su tiempo de vuelo.
 function Projectiles.spawnBomb(
 	origin: Vector3,
-	direction: Vector3,
+	velocity: Vector3,
 	damage: number,
-	speed: number,
 	lifetime: number,
 	owner: Player,
 	isCrit: boolean,
@@ -146,14 +196,14 @@ function Projectiles.spawnBomb(
 )
 	launch(
 		origin,
-		direction,
+		velocity,
 		damage,
-		speed,
 		lifetime,
 		owner,
 		isCrit,
 		math.max(blastRadius, 1),
-		Config.Projectile.Gravity
+		Config.Projectile.Gravity,
+		Config.Projectile.BombSpin
 	)
 end
 
@@ -246,7 +296,23 @@ local function step(index: number, dt: number)
 		detonate(index)
 		return
 	end
-	projectile.Part.CFrame = CFrame.new(projectile.Position)
+
+	-- La bomba gira alrededor de su eje de avance: el rollo alrededor de Z local no
+	-- mueve los attachments del trail (están en perpendicular), así que el rastro se
+	-- queda pegado a la trayectoria mientras la piedra da vueltas.
+	if projectile.SpinRate > 0 then
+		projectile.Spin += projectile.SpinRate * dt
+		local forward = projectile.Velocity.Unit
+		-- lookAt no soporta un forward paralelo al up: se desvía un pelo para que
+		-- una bomba casi vertical al aterrizar no genere un CFrame NaN.
+		if math.abs(forward.Y) > 0.98 then
+			forward = Vector3.new(forward.X + 0.01, forward.Y, forward.Z).Unit
+		end
+		projectile.Part.CFrame = CFrame.lookAt(projectile.Position, projectile.Position + forward)
+			* CFrame.Angles(0, 0, projectile.Spin)
+	else
+		projectile.Part.CFrame = CFrame.new(projectile.Position)
+	end
 end
 
 function Projectiles.update(dt: number)
