@@ -210,7 +210,7 @@ function CombatFeedback.build()
 					-- que pierde empuje. Deja el anillo en 1 solo perfil robusto.
 					local eased = 1 - (1 - t) * (1 - t)
 					local diameter = ring.Radius * 2 * eased + 0.3
-					ring.Part.Size = Vector3.new(diameter, RING_HEIGHT, diameter)
+					ring.Part.Size = Vector3.new(RING_HEIGHT, diameter, diameter)
 					ring.Part.Transparency = ring.FadeFrom + (1 - ring.FadeFrom) * t
 				end
 			end
@@ -270,8 +270,9 @@ local function playRing(position: Vector3, radius: number, color: Color3, durati
 			ring.FadeFrom = fadeFrom
 			ring.Part.Color = color
 			ring.Part.Transparency = fadeFrom
-			ring.Part.Position = Vector3.new(position.X, position.Y + RING_HEIGHT / 2, position.Z)
-			ring.Part.Size = Vector3.new(0.3, RING_HEIGHT, 0.3)
+			ring.Part.CFrame = CFrame.new(position.X, position.Y + RING_HEIGHT / 2, position.Z)
+				* CFrame.Angles(0, 0, math.rad(90))
+			ring.Part.Size = Vector3.new(RING_HEIGHT, 0.3, 0.3)
 			return
 		end
 	end
