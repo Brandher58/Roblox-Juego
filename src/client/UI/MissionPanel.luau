@@ -37,7 +37,7 @@ local STATE_TEXT = {
 
 local STATE_HINTS = {
 	Available = "Pulsa EMPEZAR y entra al mapa",
-	Completed = "Superada · progreso guardado",
+	Completed = "Repetible · tu progreso queda guardado",
 	Locked = "Completa la misión anterior para desbloquear",
 }
 
@@ -108,7 +108,9 @@ local function buildCard(mission: MissionSummary, index: number)
 
 	local accent = STATE_COLORS[mission.State] or MUTED
 	local isLocked = mission.State == "Locked"
-	local isAvailable = mission.State == "Available"
+	-- Cualquier misión no bloqueada es jugable: superadas se pueden repetir.
+	local isPlayable = mission.State ~= "Locked"
+	local actionText = if mission.State == "Completed" then "REPETIR" else "EMPEZAR"
 
 	local card = UIKit.frame(
 		list,
@@ -122,7 +124,7 @@ local function buildCard(mission: MissionSummary, index: number)
 	card.ClipsDescendants = true
 
 	local stroke = UIKit.stroke(card, accent, 1)
-	stroke.Transparency = if isAvailable then 0.25 else 0.55
+	stroke.Transparency = if isPlayable then 0.25 else 0.55
 
 	-- Barra de acento superior (centrada, sutil).
 	local strip = UIKit.frame(card, "Strip", UDim2.new(1, -32, 0, 3), UDim2.new(0, 16, 0, 0), nil, accent)
@@ -210,7 +212,7 @@ local function buildCard(mission: MissionSummary, index: number)
 
 	-- Pie: botón de acción o pista según el estado. La fila está dedicada, así el
 	-- botón nunca toca el texto de recompensas.
-	if isAvailable then
+	if isPlayable then
 		local button = Instance.new("TextButton")
 		button.Name = "Start"
 		button.Size = UDim2.new(0, 130, 0, 34)
@@ -219,7 +221,7 @@ local function buildCard(mission: MissionSummary, index: number)
 		button.BorderSizePixel = 0
 		button.AutoButtonColor = true
 		button.Font = Enum.Font.GothamBold
-		button.Text = "EMPEZAR"
+		button.Text = actionText
 		button.TextColor3 = Color3.fromRGB(15, 17, 23)
 		button.TextSize = 14
 		button.Parent = card
