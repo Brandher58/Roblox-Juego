@@ -62,6 +62,27 @@ local function handle(player: Player, command: unknown, value: unknown): boolean
 		end
 		Match.grantXp(player, value)
 		return true
+	elseif command == "level_up" then
+		-- Subir el nivel de UN arma manualmente (o desbloquearla si todavía no
+		-- estaba en el inventario).
+		if typeof(value) ~= "string" then
+			return false
+		end
+		local weapon = Registry.Weapons[value]
+		if not weapon then
+			return false
+		end
+		state.weaponLevels[value] = math.min((state.weaponLevels[value] or 0) + 1, weapon.MaxLevel)
+	elseif command == "upgrade_level_up" then
+		-- Subir el nivel de UNA mejora manualmente.
+		if typeof(value) ~= "string" then
+			return false
+		end
+		local upgrade = Registry.Upgrades[value]
+		if not upgrade or upgrade.Kind == "NewWeapon" then
+			return false
+		end
+		state.upgradeLevels[value] = math.min((state.upgradeLevels[value] or 0) + 1, upgrade.MaxLevel)
 	elseif command == "heal" then
 		heal(player)
 	else

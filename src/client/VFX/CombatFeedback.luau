@@ -11,6 +11,9 @@ local POOL_SIZE = 14
 local BEAM_POOL_SIZE = 12
 local RING_POOL_SIZE = 6
 local BUSY_SECONDS = 0.6
+-- Altura del anillo de choque: un cilindro sobre el suelo que se lee aun con la
+-- cámara top-down.
+local RING_HEIGHT = 1.2
 
 -- Colores de presentación de cada efecto.
 local BOLT = Color3.fromRGB(255, 246, 220)
@@ -207,7 +210,7 @@ function CombatFeedback.build()
 					-- que pierde empuje. Deja el anillo en 1 solo perfil robusto.
 					local eased = 1 - (1 - t) * (1 - t)
 					local diameter = ring.Radius * 2 * eased + 0.3
-					ring.Part.Size = Vector3.new(diameter, 0.1, diameter)
+					ring.Part.Size = Vector3.new(diameter, RING_HEIGHT, diameter)
 					ring.Part.Transparency = ring.FadeFrom + (1 - ring.FadeFrom) * t
 				end
 			end
@@ -267,8 +270,8 @@ local function playRing(position: Vector3, radius: number, color: Color3, durati
 			ring.FadeFrom = fadeFrom
 			ring.Part.Color = color
 			ring.Part.Transparency = fadeFrom
-			ring.Part.Position = Vector3.new(position.X, position.Y + 0.04, position.Z)
-			ring.Part.Size = Vector3.new(0.3, 0.1, 0.3)
+			ring.Part.Position = Vector3.new(position.X, position.Y + RING_HEIGHT / 2, position.Z)
+			ring.Part.Size = Vector3.new(0.3, RING_HEIGHT, 0.3)
 			return
 		end
 	end
@@ -306,8 +309,8 @@ function CombatFeedback.play(kind: string, position: Vector3, magnitude: number,
 	elseif kind == "nova" then
 		-- Chispazo central + el anillo de choque que empuja a la horda.
 		local scale = math.clamp(magnitude / 8, 0.6, 2)
-		emit(position, math.round(14 * scale), NOVA)
-		playRing(position, magnitude, NOVA, 0.45, 0.3)
+		emit(position, math.round(18 * scale), NOVA)
+		playRing(position, magnitude * 1.15, NOVA, 0.5, 0.15)
 	elseif kind == "chain" then
 		-- Eco en el origen del salto y chispazo en el impacto (target); el primer
 		-- rayo nace en el arma del jugador, así que siempre hay un segmento visible.
